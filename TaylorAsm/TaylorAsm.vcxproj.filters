@@ -4,6 +4,6 @@
     <MASM Include="main.asm" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="export.def" />
+    <None Include="main.def" />
   </ItemGroup>
 </Project>

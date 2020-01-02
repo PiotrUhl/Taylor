@@ -158,14 +158,6 @@
     <ClInclude Include="timer.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\TaylorAsm\TaylorAsm.vcxproj">
-      <Project>{4bd47bbf-3d82-4406-9e1d-e0dd9fd20fc2}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\TaylorCpp\TaylorCpp.vcxproj">
-      <Project>{746fed87-47c2-4dcd-bb72-2901c6c2127c}</Project>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
     <None Include="draw.gp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

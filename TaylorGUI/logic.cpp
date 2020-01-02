@@ -110,10 +110,11 @@ void start() {
 	}
 	void (*sin_i)(Point*, int, int) = NULL;
 	void (*cos_i)(Point*, int, int) = NULL;
+	HINSTANCE hGetProcIDDLL = NULL;
 
 	//selecting and loading library
 	if (inputData.library == InputData::Library::CPP) {
-		HINSTANCE hGetProcIDDLL = LoadLibrary("TAYLORCPP.dll");
+		hGetProcIDDLL = LoadLibrary("TaylorCpp.dll");
 		if (!hGetProcIDDLL) {
 			MessageBox(g_windowMain, "Library loading error!", "Error", MB_ICONERROR);
 			return;
@@ -121,16 +122,18 @@ void start() {
 		sin_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "sin_i");
 		if (!sin_i) {
 			MessageBox(g_windowMain, "Function loading error (sinus)!", "Error", MB_ICONERROR);
+			FreeLibrary(hGetProcIDDLL);
 			return;
 		}
 		cos_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
 		if (!cos_i) {
 			MessageBox(g_windowMain, "Function loading error (cosinus)!", "Error", MB_ICONERROR);
+			FreeLibrary(hGetProcIDDLL);
 			return;
 		}
 	}
 	else if (inputData.library == InputData::Library::ASM) {
-		HINSTANCE hGetProcIDDLL = LoadLibrary("TAYLORASM.dll");
+		hGetProcIDDLL = LoadLibrary("TaylorAsm.dll");
 		if (!hGetProcIDDLL) {
 			MessageBox(g_windowMain, "Library loading error!", "Error", MB_ICONERROR);
 			return;
@@ -138,11 +141,13 @@ void start() {
 		sin_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "sin_i");
 		if (!sin_i) {
 			MessageBox(g_windowMain, "Function loading error (sinus)!", "Error", MB_ICONERROR);
+			FreeLibrary(hGetProcIDDLL);
 			return;
 		}
 		cos_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
 		if (!cos_i) {
 			MessageBox(g_windowMain, "Function loading error (cosinus)!", "Error", MB_ICONERROR);
+			FreeLibrary(hGetProcIDDLL);
 			return;
 		}
 	}
@@ -168,6 +173,9 @@ void start() {
 		return; //this should never happen
 	}
 	
+	//freeing library
+	FreeLibrary(hGetProcIDDLL);
+
 	//saving to file
 	int fileLenght = SendMessage(h_staticFile, WM_GETTEXTLENGTH, 0, 0);
 	char* fileBuffer = new char[fileLenght + 1];
