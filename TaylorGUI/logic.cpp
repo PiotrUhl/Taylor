@@ -203,29 +203,17 @@ void start() {
 	TCHAR tempFile[MAX_PATH];
 	GetTempFileName(tempPath, "JA", 0, tempFile);
 	std::string imagePath = tempFile;
-	imagePath += ".png";
 	command += imagePath;
-	//WinExec(command.c_str(), SW_HIDE);
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
 	ZeroMemory(&si, sizeof(si));
 	si.cb = sizeof(si);
 	ZeroMemory(&pi, sizeof(pi));
-	CreateProcess(NULL,   // No module name (use command line)
-		(LPSTR)command.c_str(),        // Command line
-		NULL,           // Process handle not inheritable
-		NULL,           // Thread handle not inheritable
-		FALSE,          // Set handle inheritance to FALSE
-		CREATE_NO_WINDOW,              // No creation flags
-		NULL,           // Use parent's environment block
-		NULL,           // Use parent's starting directory 
-		&si,            // Pointer to STARTUPINFO structure
-		&pi);           // Pointer to PROCESS_INFORMATION structure
+	CreateProcess(NULL,	(LPSTR)command.c_str(),	NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
 	WaitForSingleObject(pi.hProcess, 3000);
 	//draw image
 	std::wstring wc(imagePath.begin(), imagePath.end());
 	drawImage(wc.c_str());
-	//drawImage((wchar_t*)imagePath);
 }
 
 void saveToFile(char* path, InputData inputData, Point* tab, int n) {
