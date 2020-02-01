@@ -37,7 +37,9 @@ int onCreate(HWND hwnd, HINSTANCE hInstance) {
 	h_editThreads = CreateWindowEx(WS_EX_CLIENTEDGE, "EDIT", NULL, WS_CHILD | WS_VISIBLE, D_THREDIT_X, D_THREDIT_Y, D_THREDIT_W, D_THREDIT_H, hwnd, NULL, hInstance, NULL);
 	SendMessage(h_updownThreads, UDM_SETBUDDY, (LPARAM)h_editThreads, false); //set buddy
 	SendMessage(h_updownThreads, UDM_SETRANGE, 0, MAKELPARAM(64, 1)); //set min/max
-	SendMessage(h_updownThreads, UDM_SETPOS32, 0, 1); //set default
+	SYSTEM_INFO sysInfo;
+	GetSystemInfo(&sysInfo);
+	SendMessage(h_updownThreads, UDM_SETPOS32, 0, sysInfo.dwNumberOfProcessors); //set default
 
 	//add output file path label
 	h_staticFile = CreateWindowEx(0, "STATIC", NULL, WS_CHILD | WS_VISIBLE | SS_LEFT | SS_PATHELLIPSIS, D_FILELABEL_X, D_FILELABEL_Y, D_FILELABEL_W, D_FILELABEL_H, hwnd, NULL, hInstance, NULL);
@@ -92,9 +94,9 @@ int onCreate(HWND hwnd, HINSTANCE hInstance) {
 	h_buttonStart = CreateWindowEx(0, "BUTTON", "Start", WS_CHILD | WS_VISIBLE, D_STARTBUTTON_X, D_STARTBUTTON_Y, D_STARTBUTTON_W, D_STARTBUTTON_H, hwnd, NULL, hInstance, NULL);
 	SendMessage(h_buttonStart, WM_SETFONT, (LPARAM)GetStockObject(DEFAULT_GUI_FONT), true); //set font
 
-	//ramka na menu
+	//add menu frame
 	h_frameMenu = CreateWindowEx(0, "button", "", WS_VISIBLE | WS_CHILD | BS_GROUPBOX, D_MENUFRAME_X, D_MENUFRAME_Y, D_MENUFRAME_W, D_MENUFRAME_H, hwnd, NULL, hInstance, NULL);
-	//ramka na obrazek
+	//add image frame
 	h_frameImage = CreateWindowEx(0, "button", "", WS_VISIBLE | WS_CHILD | BS_GROUPBOX, D_IMGFRAME_X, D_IMGFRAME_Y, D_IMGFRAME_W, D_IMGFRAME_H, hwnd, NULL, hInstance, NULL);
 
 	//graph image

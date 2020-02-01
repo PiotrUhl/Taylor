@@ -6,6 +6,8 @@
 #include <wincodec.h>
 #include <wincodecsdk.h>
 #include <gdiplus.h>
+#include <thread>
+#include <forward_list>
 #include "globals.h"
 #include "timer.h"
 #include "dimensions.h"
@@ -100,7 +102,27 @@ void start() {
 		return;
 	}
 
-	//todo: read threads
+	//threads
+	int threadsTemp = 0;
+	int threadsLenght = GetWindowTextLength(h_editThreads) + 1;
+	char* threadsBuffer = new char[threadsLenght];
+	GetWindowText(h_editThreads, threadsBuffer, threadsLenght);
+	try {
+		threadsTemp = std::stoi(threadsBuffer);
+	}
+	catch (const std::invalid_argument&) {
+		MessageBox(g_windowMain, "Threads number is not a valid number!", "Error", MB_ICONERROR);
+		return;
+	}
+	catch (const std::out_of_range&) {
+		MessageBox(g_windowMain, "Threads number is out of range!", "Error", MB_ICONERROR); //should never happen
+		return;
+	}
+	if (threadsTemp < 1 || threadsTemp > 64) {
+		MessageBox(g_windowMain, "Threads number is out of range! (1 - 64)", "Error", MB_ICONERROR);
+		return;
+	}
+	inputData.threads = static_cast<unsigned char>(threadsTemp);
 
 	//array
 	Point* tab = new Point[inputData.nodes];
@@ -144,34 +166,52 @@ void start() {
 			FreeLibrary(hGetProcIDDLL);
 			return;
 		}
-		cos_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
+		/*cos_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
 		if (!cos_i) {
 			MessageBox(g_windowMain, "Function loading error (cosinus)!", "Error", MB_ICONERROR);
 			FreeLibrary(hGetProcIDDLL);
 			return;
-		}
+		}*/
 	}
 	else {
 		MessageBox(g_windowMain, "Error!", "Error", MB_ICONERROR);
 		return; //this should never happen
 	}
 
-
-	//calling library
+	void(*fun_i)(Point*, int, int);
+	//choosing library
 	if (inputData.function == InputData::Function::SIN) {
-		startTimer();
-		sin_i(tab, inputData.nodes, 20);
-		printTime(stopTimer());
+		fun_i = sin_i;
 	}
 	else if (inputData.function == InputData::Function::COS) {
-		startTimer();
-		cos_i(tab, inputData.nodes, 20);
-		printTime(stopTimer());
+		fun_i = cos_i;
 	}
 	else {
 		MessageBox(g_windowMain, "Error!", "Error", MB_ICONERROR);
 		return; //this should never happen
 	}
+
+	//calling library on threads
+	int div = inputData.nodes / inputData.threads;
+	int mod = inputData.nodes % inputData.threads;
+	Point* pointer = tab;
+	std::forward_list<std::thread> threadList;
+	startTimer();
+	for (int i = 0; i < inputData.nodes;) {
+		int nodes = div;
+		if (mod > 0) {
+			++nodes;
+			--mod;
+		}
+		std::thread thread(fun_i, pointer, nodes, 20);
+		threadList.push_front(std::move(thread));
+		pointer += nodes;
+		i += nodes;
+	}
+	for (std::thread& k : threadList) {
+		k.join();
+	}
+	printTime(stopTimer());
 	
 	//freeing library
 	FreeLibrary(hGetProcIDDLL);
