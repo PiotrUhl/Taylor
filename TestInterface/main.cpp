@@ -6,28 +6,32 @@
 using namespace std;
 
 int main() {
-	const int n = 20;
+	const int n = 300;
 	Point* tab1 = new Point[n];
 	Point* tab2 = new Point[n];
 	for (int i = 0; i < n; i++) {
 		tab1[i].x = tab2[i].x = (double)i*0.2;
 	}
 
-	void(_stdcall*sin_i_asm)(DWORD, DWORD, DWORD) = NULL;
-	void(*sin_i_cpp)(DWORD, DWORD, DWORD) = NULL;
+	void(_stdcall*sin_i_asm)(Point*, int, int) = NULL;
+	void(_stdcall*sin_i_cpp)(Point*, int, int) = NULL;
 	HINSTANCE hGetProcIDDLLAsm = LoadLibrary(L"TAYLORASM.dll");
-	sin_i_asm = (void(_stdcall*)(DWORD, DWORD, DWORD))GetProcAddress(hGetProcIDDLLAsm, "sin_i");
+	sin_i_asm = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLLAsm, "sin_i");
 	HINSTANCE hGetProcIDDLLCpp = LoadLibrary(L"TAYLORCPP.dll");
-	sin_i_cpp = (void(*)(DWORD, DWORD, DWORD))GetProcAddress(hGetProcIDDLLCpp, "sin_i");
+	sin_i_cpp = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLLCpp, "_sin_i@12");
 
-	sin_i_cpp((DWORD)tab2, n, 10);
-	sin_i_asm((DWORD)tab1, n, 10);
+	sin_i_cpp(tab2, n, 10);
+	sin_i_asm(tab1, n, 10);
 
 	for (int i = 0; i < n; i++) {
 		cout.precision(2);
 		cout.width(7);
 		cout.unsetf(ios::showpos);
 		cout << left << tab1[i].x;
+		cout.precision(2);
+		cout.width(7);
+		cout.unsetf(ios::showpos);
+		cout << left << tab2[i].x;
 		cout.precision(6);
 		cout.width(18);
 		cout.setf(ios::showpos);

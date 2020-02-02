@@ -26,74 +26,107 @@ DllEntry PROC hInstDLL:HINSTANCE, reason:DWORD, reserved1:DWORD
 DllEntry ENDP
 
 ;sinus dla  przedzia³u
-sin_i PROC point: DWORD , n: DWORD, m: DWORD
+sin_i PROC point: DWORD, n: DWORD, m: DWORD
+	PUSH EDI ;rejestr EDI na stos
+
+	XOR EDI, EDI ;rejestr flag (EDI.1 sinus/cosinus; EDI.0 negacja)
+	;BTR EDR, 1 ;flaga cosinus nieustawiona
+
+	CALL tryg_i ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
+
+	POP EDI ;przywrócenie rejestru EDI
+	RET
+sin_i ENDP
+
+;cosinus dla  przedzia³u
+cos_i PROC point: DWORD, n: DWORD, m: DWORD
+	PUSH EDI ;rejestr EDI na stos
+
+	XOR EDI, EDI ;rejestr flag (EDI.1 sinus/cosinus; EDI.0 negacja)
+	BTS EDI, 1 ;ustaw flagê cosisus
+
+	CALL tryg_i
+
+	POP EDI ;przywrócenie rejestru EDI
+	RET
+cos_i ENDP
+
+;funkcja sinus/cosinus dla przedzia³u (cos dla EDI.1 = 1)
+tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 	;inicjalizacja
 	PUSH EBX
 	PUSH ESI
 	PUSH ECX
-	PUSH EDI
 
-	MOV EBX, point ;adres bazowy tablicy punktów
+	MOV EBX, [ESP + 1Ch] ;adres bazowy tablicy punktów
 	XOR ESI, ESI ;iterator tablicy punktów
 	XOR ECX, ECX ;iterator g³ównej pêtli
-	XOR EDI, EDI ;rejestr flag (flaga negacji na najm³odszym bicie)
 
-	;FLD val ;temp test
-	;ADD ESI, COORDSIZE ; temp test
+@loop: ;g³ówna pêtla po tablicy point
 
-	@loop: ;g³ówna pêtla po tablicy point
-
+		BTR EDI, 0 ;zeruj flagê negacji
 		FLD QWORD PTR [EBX + ESI] ;wspó³rzêdna x obecnego punktu na stos zmiennoprzecinkowy
-@n1: ;normalizacja x < pi
+@n1: ;normalizacja x < 0
 		FLD ZERO ;zero na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie zera z obecnym x (zdejmuje 0 ze stosu)
-		JB @n2 ;je¿eli x >= 0 idŸ dalej
+		JBE @n2 ;je¿eli 0 <= x idŸ dalej
 		FADD M_2PI ;je¿eli nie x += 2pi
 		JMP @n1 ;sprawdŸ jeszcze raz
 @n2: ;normalizacja x > 2pi
 		FLD M_2PI ;2pi na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie 2pi z obecnym x (zdejmuje 2pi ze stosu)
-		JAE @n3 ;je¿eli x < 2pi idŸ dalej
+		JAE @n3 ;je¿eli 2pi >= 0 idŸ dalej
 		FSUB M_2PI ;je¿eli nie x -= 2pi
 		JMP @n2 ;sprawdŸ jeszcze raz
 @n3: ;sprowadzanie do przedzia³u <0;pi>
 		FLD M_PI ;pi na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie pi z obecnym x (zdejmuje pi ze stosu)
-		JBE @ne ;je¿eli x > M_PI skocz do obs³ugi
+		JBE @ne ;je¿eli M_PI <= x skocz do obs³ugi
 @n4: ;wywo³anie funkcji
 		FLD M_PI2 ;pi/2 na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie pi/2 z obecnym x (zdejmuje pi/2 ze stosu)
-		JBE @toCos ;je¿eli x > pi/2 zamieñ na cosinus
+		JBE @chFun ;je¿eli pi/2 <= x zamieñ funkcjê
+		BT EDI,1 ;sprawdŸ flagê funkcji
+		JC @cc ;je¿eli cosinus wywo³aj funkcjê cosinus
 		CALL sin ;je¿eli nie, wywo³aj funkcjê sin() (wynik przez stos zmiennoprzecinkowy)
+		JMP @n5 ;idŸ dalej
+@cc: ;wywo³aj cosinus
+		CALL cos ;wywo³aj funkcjê cos() (wynik przez stos zmiennoprzecinkowy)
 @n5: ;test flagi negacji
 		BT EDI, 0 ;przenosi flagê negacji do CF
-		JC @n6 ;je¿eli flaga negacji nie jest ustawiona pomiñ
-		FCHS ;je¿eli jest zaneguj y
+		JNC @n6 ;je¿eli flaga negacji nie jest ustawiona pomiñ
+		FCHS ;je¿eli jest zaneguj y ; nie wiem dlaczego bez tego dzia³a, prawdopodobnie rozkaz FCOS zwraca coœ dziwnego
 @n6: ;zapis wyniku do pamiêci
 		FSTP QWORD PTR [EBX + ESI + COORDSIZE] ;zapis wyniku w polu wspó³rzêdnej y obecnego punktu
 
 		ADD ESI, POINTSIZE ;inkrementacja iteratora tablicy
 		INC ECX ;inkrementacja iteratora pêtli
-		CMP ECX, n ;test warunku koñcowego pêtli
+		CMP ECX, [ESP + 20h] ;test warunku koñcowego pêtli [ESP + 20h] to n
 		JB @loop
 
 	;przywrócenie stanu rejestrów
-	POP EDI
 	POP ECX
 	POP ESI
 	POP EBX
 	RET
 
-@ne: ;obs³uga x > M_PI - ustawia flagê negacji
+@ne: ;obs³uga x > M_PI - ustawia flagê negacji o odejmuje pó³ pi
 	BTS EDI,0 ;ustaw flagê negacji
+	FSUB M_PI ;x -= pi
 	JMP @n4 ;powrót
 
-@toCos: ;zamiana na funkcjê cosinus
-	FSUB M_PI2 ;x -- pi/2
+@chFun: ;zamieñ funkcjê
+	FSUB M_PI2 ;x -= pi/2
+	BT EDI,1 ;sprawdŸ flagê funkcji
+	JNC @ccs ;je¿eli nie cosinus wywo³aj funkcjê cosinus
+	BTC EDI,0 ;je¿eli cosinus zaneguj
+	CALL sin ; i wywo³aj funkcjê sinus (wynik przez stos zmiennoprzecinkowy)
+	JMP @n5 ;powrót
+@ccs: ;wywo³aj funkcjê cosinus
 	CALL cos ;wywo³aj funkcjê cosinus (wynik przez stos zmiennoprzecinkowy)
 	JMP @n5 ;powrót
 
-sin_i ENDP
+tryg_i ENDP
 
 ;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji sinus w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego
 sin proc

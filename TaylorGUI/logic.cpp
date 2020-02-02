@@ -130,8 +130,8 @@ void start() {
 	for (int i = 0; i < inputData.nodes; i++) {
 		tab[i].x = inputData.leftEndpoint + constTemp * i;
 	}
-	void (*sin_i)(Point*, int, int) = NULL;
-	void (*cos_i)(Point*, int, int) = NULL;
+	void (_stdcall*sin_i)(Point*, int, int) = NULL;
+	void (_stdcall*cos_i)(Point*, int, int) = NULL;
 	HINSTANCE hGetProcIDDLL = NULL;
 
 	//selecting and loading library
@@ -141,13 +141,13 @@ void start() {
 			MessageBox(g_windowMain, "Library loading error!", "Error", MB_ICONERROR);
 			return;
 		}
-		sin_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "sin_i");
+		sin_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "_sin_i@12");
 		if (!sin_i) {
 			MessageBox(g_windowMain, "Function loading error (sinus)!", "Error", MB_ICONERROR);
 			FreeLibrary(hGetProcIDDLL);
 			return;
 		}
-		cos_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
+		cos_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "_cos_i@12");
 		if (!cos_i) {
 			MessageBox(g_windowMain, "Function loading error (cosinus)!", "Error", MB_ICONERROR);
 			FreeLibrary(hGetProcIDDLL);
@@ -160,25 +160,25 @@ void start() {
 			MessageBox(g_windowMain, "Library loading error!", "Error", MB_ICONERROR);
 			return;
 		}
-		sin_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "sin_i");
+		sin_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "sin_i");
 		if (!sin_i) {
 			MessageBox(g_windowMain, "Function loading error (sinus)!", "Error", MB_ICONERROR);
 			FreeLibrary(hGetProcIDDLL);
 			return;
 		}
-		/*cos_i = (void(*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
+		cos_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
 		if (!cos_i) {
 			MessageBox(g_windowMain, "Function loading error (cosinus)!", "Error", MB_ICONERROR);
 			FreeLibrary(hGetProcIDDLL);
 			return;
-		}*/
+		}
 	}
 	else {
 		MessageBox(g_windowMain, "Error!", "Error", MB_ICONERROR);
 		return; //this should never happen
 	}
 
-	void(*fun_i)(Point*, int, int);
+	void(_stdcall*fun_i)(Point*, int, int);
 	//choosing library
 	if (inputData.function == InputData::Function::SIN) {
 		fun_i = sin_i;
@@ -197,7 +197,7 @@ void start() {
 	Point* pointer = tab;
 	std::forward_list<std::thread> threadList;
 	startTimer();
-	for (int i = 0; i < inputData.nodes;) {
+	for (int i = 0; i < inputData.nodes - div;) {
 		int nodes = div;
 		if (mod > 0) {
 			++nodes;
@@ -208,6 +208,7 @@ void start() {
 		pointer += nodes;
 		i += nodes;
 	}
+	fun_i(pointer, div, 20);
 	for (std::thread& k : threadList) {
 		k.join();
 	}
