@@ -12,8 +12,7 @@ COORDSIZE EQU 8 ;rozmiar pojedynczej wspó³rzêdnej w strukturze Point
 
 .DATA ;sekcja danych
 
-ZERO QWORD 0.0 ;zmiennoprzecinkowe zero
-M_PI QWORD 3.14159265358979323846 ;liczba pi
+;M_PI QWORD 3.14159265358979323846 ;liczba pi
 M_2PI QWORD 6.28318530717958647692 ;podwojona liczba pi - prymitywna optymalizacja, powinien to za mnie policzyæ preprocesor
 M_PI2 QWORD 1.57079632679489661923 ;po³owa liczby pi
 
@@ -67,7 +66,7 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 		BTR EDI, 0 ;zeruj flagê negacji
 		FLD QWORD PTR [EBX + ESI] ;wspó³rzêdna x obecnego punktu na stos zmiennoprzecinkowy
 @n1: ;normalizacja x < 0
-		FLD ZERO ;zero na stos zmiennoprzecinkowy
+		FLDZ ;zero na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie zera z obecnym x (zdejmuje 0 ze stosu)
 		JBE @n2 ;je¿eli 0 <= x idŸ dalej
 		FADD M_2PI ;je¿eli nie x += 2pi
@@ -79,7 +78,7 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 		FSUB M_2PI ;je¿eli nie x -= 2pi
 		JMP @n2 ;sprawdŸ jeszcze raz
 @n3: ;sprowadzanie do przedzia³u <0;pi>
-		FLD M_PI ;pi na stos zmiennoprzecinkowy
+		FLDPI ;pi na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie pi z obecnym x (zdejmuje pi ze stosu)
 		JBE @ne ;je¿eli M_PI <= x skocz do obs³ugi
 @n4: ;wywo³anie funkcji
@@ -112,7 +111,8 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 
 @ne: ;obs³uga x > M_PI - ustawia flagê negacji o odejmuje pó³ pi
 	BTS EDI,0 ;ustaw flagê negacji
-	FSUB M_PI ;x -= pi
+	FLDPI ;pi na stos zmiennoprzecinkowey
+	FSUBP ;x -= pi
 	JMP @n4 ;powrót
 
 @chFun: ;zamieñ funkcjê
