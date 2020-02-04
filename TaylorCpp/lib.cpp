@@ -55,7 +55,10 @@ double sin_t(double x) {
 	KnownValues a = chooseA(x);
 	double ret = 0;
 	for (int i = 0; i < G_M; i++) {
-		ret += pow((x - getVal(a)), i) * dsin_k(i, a) / factorial(i);
+		double poww = pow((x - getVal(a)), i);
+		double dsin_kk = dsin_k(i, a);
+		long factoriall = factorial(i);
+		ret += poww * dsin_kk / factoriall;
 	}
 	return ret;
 }

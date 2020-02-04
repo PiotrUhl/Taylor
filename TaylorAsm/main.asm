@@ -75,11 +75,13 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 		BTR EDI, 0 ;zeruj flagê negacji
 		FLD QWORD PTR [EBX + ESI] ;wspó³rzêdna x obecnego punktu na stos zmiennoprzecinkowy
 
+		;kopiuj flagê EDI.1 do EDI.2
 		BT EDI, 1 ;sczytuje flagê zleconej funkcji
 		JC @sf ;je¿eli 1 ustaw flagê liczonej funkcji
 		BTR EDI, 2 ;je¿eli zero, zeruj flagê liczonej funkcji
 		JMP @n1 ;idŸ dalej
 @sf:	BTS EDI, 2 ;je¿eli EDI.1 = 1 to ustaw EDI.2 na jeden
+
 @n1: ;normalizacja x < 0
 		FLDZ ;zero na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie zera z obecnym x (zdejmuje 0 ze stosu)
@@ -141,41 +143,77 @@ tryg_i ENDP
 ;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji sinus (EDI.2 = 0) b¹dŸ cosinus (EDI.2 = 1) w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego (zastêpuj¹c wartoœæ wejœciow¹)
 tryg proc
 
-	BT EDI, 2 ;sprawdŸ flagê liczonej funkcji
-	JC @tryg_cos ;je¿eli jest ustawiona, licz cosinus
-	FSIN ;je¿eli nie, licz sinus
-	RET
-@tryg_cos:
-	FCOS ;licz cosinus
-	RET
+	;BT EDI, 2 ;sprawdŸ flagê liczonej funkcji
+;	JC @tryg_cos ;je¿eli jest ustawiona, licz cosinus
+;	FSIN ;je¿eli nie, licz sinus
+;	RET
+;@tryg_cos:
+;	FCOS ;licz cosinus
+;	RET
 
 	PUSH ESI ;kopia ESI na stosie
 	MOV ESI, [ESP + 2Ch] ;m do ESI - iterator pêtli sumy
 	CALL chooseA ;wybiera najbli¿szy znany argument (a we wzorze)
 	;ST(0) = a; ST(1) = x
 	FLDZ ;zero na stos zmiennoprzecinkowy (baza sumy - przysz³y wynik)
+	;ST(0) = 0; ST(1) = a; ST(2) = x
 	@sin_loop: ;pêtla sumy
-		FLD ST(1) ;dodaj kopiê argumentu na stos zmiennoprzecinkowy
-		FSUB ST(0), ST(1) ;podstawa potêgi (x - a) na stos zmiennoprzecinkowy
-		;ST(0) = x - a; ST(1) = a; ST(2) = x
+		FLD ST(2) ;dodaj kopiê argumentu na stos zmiennoprzecinkowy
+		;ST(0) = x; ST(1) = sum; ST(2) = a; ST(3) = x
+		FSUB ST(0), ST(2) ;podstawa potêgi (x - a) na stos zmiennoprzecinkowy
+		;ST(0) = x - a; ST(1) = sum; ST(2) = a; ST(3) = x
 		MOV EAX, ESI ;wyk³adnik potêgi do akumulatora
 		CALL pow ;ST(0) <- ST(0)^EAX
+		;ST(0) = (x - a)^i; ST(1) = sum; ST(2) = a; ST(3) = x
 
+		FLD ST(2) ;kopia a na stos zmiennoprzecinkowy
+		;ST(0) = a; ST(1) = (x - a)^i; ST(2) = sum; ST(3) = a; ST(4) = x
+		MOV EAX, ESI ;stopieñ pochodnej do akumulatora
+		CALL dtryg_k ;oblicz pochodn¹ dla znanego argumentu
+		;ST(0) = d^i(a); ST(1) = (x - a)^i; ST(2) = sum; ST(3) = a; ST(4) = x
+
+		FMULP ;ST(0) <- (x - a)^i * d^i(a)
+		;ST(0) = (x - a)^i * d^i(a); ST(1) = sum; ST(2) = a; ST(3) = x
+
+		MOV EAX, ESI ;baza silnii do akumulatora
+		CALL factorial ;EAX <- EAX!
+		PUSH EAX ;silnia na stos (zwyk³y)
+		FILD DWORD PTR [ESP] ;silnia na stos zmiennoprzecinkowy
+		FDIVP ST(1), ST(0) ;podziel obecny wynik przez silniê
+		POP EAX ;sprz¹tanie stosu (zwyk³ego)
+		;ST(0) = (x - a)^i * d^i(a) / i!; ST(1) = sum; ST(2) = a; ST(3) = x
+
+		FADDP ST(1), ST(0) ;dodaj obecny wynik do sumy i zdejmij ze stosu
+		;ST(0) = sum+; ST(1) = a; ST(2) = x
 
 		DEC ESI ;dekrementacja iteratora
-		JNZ @sin_loop ;kontynuuj je¿eli nie zero
+		JNS @sin_loop ;kontynuuj pêtlê je¿eli licznik nieujemny
+
+	FSTP ST(1) ;zdejmij a ze stosu
+	;ST(0) = sum; ST(1) = x
+	FSTP ST(1) ;zdejmij s ze stosu
+	;ST(0) = sum
 
 	POP ESI ;przywrócenie ESI
 	RET
 tryg endp
 
-;zwróæ pochodn¹ n-tego stopnia funkcji sinus/cosinus (okreœlone w rejestrze flag) dla znanaj wartoœci a; n w EAX, a w ST(0); wynik w ST(0) (zastêpuje a)
+;zwróæ pochodn¹ n-tego stopnia funkcji sinus/cosinus (okreœlone w rejestrze flag EDI.2) dla znanaj wartoœci a; n w EAX, a w ST(0); wynik w ST(0) (zastêpuje a)
 dtryg_k proc
-@dtryg_k_norm:
-	CMP EAX, 3 ;porównaj akumulator (stopieñ pochodnej) z liczb¹ trzy
-	JBE @dtryg_k_cont ;je¿eli a <= 3, id¿ dalej
-	SUB EAX, 4 ;zmniejsz stopieñ pochodnej o 4 (cyklicznoœæ pochodnych funkcji sinus/cosinus)
-	JMP @dtryg_k_norm ;powtórz sprawdzenie
+	;kopiujê flagê EDI.2 do EDI.3
+	BT EDI, 2 ;sczytuje flagê liczonej funkcji
+	JC @dtryg_k_sf ;je¿eli 1 ustaw flagê liczonej pochodnej
+	BTR EDI, 3 ;je¿eli zero, zeruj flagê liczonej pochodnej
+	JMP @dtryg_k_norm ;idŸ dalej
+@dtryg_k_sf:
+	BTS EDI, 3 ;je¿eli EDI.2 = 1 to ustaw EDI.3 na jeden
+
+	@dtryg_k_norm:
+		CMP EAX, 3 ;porównaj akumulator (stopieñ pochodnej) z liczb¹ trzy
+		JBE @dtryg_k_cont ;je¿eli a <= 3, id¿ dalej
+		SUB EAX, 4 ;zmniejsz stopieñ pochodnej o 4 (cyklicznoœæ pochodnych funkcji sinus/cosinus)
+		JMP @dtryg_k_norm ;powtórz sprawdzenie
+
 @dtryg_k_cont:
 	JE @dtryg_k_3 ;je¿eli n równe trzy, zwróæ trzeci¹ pochodn¹
 	TEST EAX, EAX ;ustawia rejestr flag bazuj¹c na zawartoœci akumulatora (w tym flagê zera)
@@ -185,27 +223,38 @@ dtryg_k proc
 	;DEC EAX ;dekrementuj n
 	;JZ @dtryg_k_2 ;je¿eli n równe 0 (by³o 2), zwróæ drug¹ pochodn¹
 ;@dtryg_k_2:
-@dtryg_k_0:
+	CALL tryg_k ;wywo³aj liczon¹ funkcjê
+	FCHS ;zmieñ znak
+	RET
+@dtryg_k_0:;
+	CALL tryg_k ;wywo³aj liczon¹ funkcjê
+	RET
 @dtryg_k_1:
+	BTC EDI, 3 ;zamieñ liczon¹ funkcjê
+	CALL tryg_k
+	BT EDI, 2 ;sprawdŸ liczon¹ funkcjê
+	JNC @ret ;je¿eli sinus zakoñcz
+	FCHS ;je¿eli cosinus zmieñ znak wyniku
+	RET
 @dtryg_k_3:
+	BTC EDI, 3 ;zamieñ liczon¹ funkcjê
+	CALL tryg_k
+	BT EDI, 2 ;sprawdŸ liczon¹ funkcjê
+	JC @ret ;je¿eli cosinus zakoñcz
+	FCHS ;je¿eli sinus zmieñ znak wyniku
+@ret:
 	RET
 dtryg_k endp
 
-;constexpr double dsin_k(int n, KnownValues x) {
-;	while (n > 3) {
-;		n -= 4;
-;	}
-;	switch (n) {
-;	case 0:
-;		return sin_k(x);
-;	case 1:
-;		return cos_k(x);
-;	case 2:
-;		return -1 * sin_k(x);
-;	case 3:
-;		return -1 * cos_k(x);
-;	}
-;}
+tryg_k proc
+	BT EDI, 3 ;sprawdŸ flagê liczonej pochodnej
+	JC @tryg_cos ;je¿eli jest ustawiona, licz cosinus
+	FSIN ;je¿eli nie, licz sinus
+	RET
+@tryg_cos:
+	FCOS ;licz cosinus
+	RET
+tryg_k endp
 
 ;podnosi ST(0) do ca³kowitej potêgi EAX, wynik zwraca przez ST(0) (nadpisuje argument)
 pow proc 
@@ -267,7 +316,7 @@ factorial proc
 	MOV EAX, 1 ;jeden do EAX (podstawa dla iloczynu)
 @factorial_loop:
 	CMP EBX, 1 ;warunek koñcz¹cy pêtle
-	JZ @factorial_end ;je¿eli EBX == 1 zakoñcz
+	JBE @factorial_end ;je¿eli EBX == 1 zakoñcz
 	MUL EBX ;domnó¿ kolejny czynnik do iloczynu
 	DEC EBX ;inkrementuj licznik pêtli
 	JMP @factorial_loop

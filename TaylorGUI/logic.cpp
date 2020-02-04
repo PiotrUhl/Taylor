@@ -203,12 +203,12 @@ void start() {
 			++nodes;
 			--mod;
 		}
-		std::thread thread(fun_i, pointer, nodes, 20);
+		std::thread thread(fun_i, pointer, nodes, 3); //temp
 		threadList.push_front(std::move(thread));
 		pointer += nodes;
 		i += nodes;
 	}
-	fun_i(pointer, div, 20);
+	fun_i(pointer, div, 3); //temp
 	for (std::thread& k : threadList) {
 		k.join();
 	}
