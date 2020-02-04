@@ -13,9 +13,16 @@ COORDSIZE EQU 8 ;rozmiar pojedynczej wspó³rzêdnej w strukturze Point
 .DATA ;sekcja danych
 
 ;M_PI QWORD 3.14159265358979323846 ;liczba pi
-M_2PI QWORD 6.28318530717958647692 ;podwojona liczba pi - prymitywna optymalizacja, powinien to za mnie policzyæ preprocesor
-M_PI2 QWORD 1.57079632679489661923 ;po³owa liczby pi
-
+ST2PI QWORD 6.28318530717958647692 ;podwojona liczba pi - prymitywna optymalizacja, powinien to za mnie policzyæ preprocesor
+STPI_2 QWORD 1.57079632679489661923 ;po³owa liczby pi
+STPI_3 QWORD 1.04719755119659774615 ;pi/3
+STPI_4 QWORD 0.78539816339744830962 ;pi/4
+STPI_6 QWORD 0.52359877559829887308 ;pi/6
+ST12 QWORD 12.0 ;sta³a 12
+ST5 QWORD 5.0 ;sta³a 5
+ST2 QWORD 2.0 ;sta³a 2
+ST1_4 QWORD 1.4 ;sta³a 1.4 (7/5)
+ST2_5 QWORD 2.5 ;sta³a 2.5 (5/2)
 .CODE ;sekcja programu
 
 ;procedura g³ówna biblioteki - niezbêdna do ³adowania dynamicznego
@@ -69,20 +76,20 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 		FLDZ ;zero na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie zera z obecnym x (zdejmuje 0 ze stosu)
 		JBE @n2 ;je¿eli 0 <= x idŸ dalej
-		FADD M_2PI ;je¿eli nie x += 2pi
+		FADD ST2PI ;je¿eli nie x += 2pi
 		JMP @n1 ;sprawdŸ jeszcze raz
 @n2: ;normalizacja x > 2pi
-		FLD M_2PI ;2pi na stos zmiennoprzecinkowy
+		FLD ST2PI ;2pi na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie 2pi z obecnym x (zdejmuje 2pi ze stosu)
 		JAE @n3 ;je¿eli 2pi >= 0 idŸ dalej
-		FSUB M_2PI ;je¿eli nie x -= 2pi
+		FSUB ST2PI ;je¿eli nie x -= 2pi
 		JMP @n2 ;sprawdŸ jeszcze raz
 @n3: ;sprowadzanie do przedzia³u <0;pi>
 		FLDPI ;pi na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie pi z obecnym x (zdejmuje pi ze stosu)
 		JBE @ne ;je¿eli M_PI <= x skocz do obs³ugi
 @n4: ;wywo³anie funkcji
-		FLD M_PI2 ;pi/2 na stos zmiennoprzecinkowy
+		FLD STPI_2 ;pi/2 na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie pi/2 z obecnym x (zdejmuje pi/2 ze stosu)
 		JBE @chFun ;je¿eli pi/2 <= x zamieñ funkcjê
 		BT EDI,1 ;sprawdŸ flagê funkcji
@@ -116,7 +123,7 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 	JMP @n4 ;powrót
 
 @chFun: ;zamieñ funkcjê
-	FSUB M_PI2 ;x -= pi/2
+	FSUB STPI_2 ;x -= pi/2
 	BT EDI,1 ;sprawdŸ flagê funkcji
 	JNC @ccs ;je¿eli nie cosinus wywo³aj funkcjê cosinus
 	BTC EDI,0 ;je¿eli cosinus zaneguj
@@ -128,32 +135,130 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 
 tryg_i ENDP
 
-;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji sinus w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego
+;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji sinus w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego (zastêpuj¹c wartoœæ wejœciow¹)
 sin proc
-	FSIN
+	PUSH ESI ;kopia ESI na stosie
+	MOV ESI, [ESP + 2Ch] ;m do ESI - iterator pêtli sumy
+	CALL chooseA ;wybiera najbli¿szy znany argument (a we wzorze)
+	;ST(0) = a; ST(1) = x
+	FLDZ ;zero na stos zmiennoprzecinkowy (baza sumy - przysz³y wynik)
+	@sin_loop: ;pêtla sumy
+		FLD ST(1) ;dodaj kopiê argumentu na stos zmiennoprzecinkowy
+		FSUB ST(0), ST(1) ;podstawa potêgi (x - a) na stos zmiennoprzecinkowy
+		;ST(0) = x - a; ST(1) = a; ST(2) = x
+		MOV EAX, ESI ;wyk³adnik potêgi do akumulatora
+		CALL pow ;ST(0) <- ST(0)^EAX
+
+
+		DEC ESI ;dekrementacja iteratora
+		JNZ @sin_loop ;kontynuuj je¿eli nie zero
+	FSTP ST(0) ;debug
+	FSIN ;debug
+
+	POP ESI ;przywrócenie ESI
 	RET
 sin endp
 
-;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji cosinus w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego
+;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji cosinus w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego (zastêpuj¹c wartoœæ wejœciow¹)
 cos proc
+	CALL chooseA ;wybiera najbli¿szy znany argument (a we wzorze)
+	;ST(0) = a; ST(1) = x
+	FSTP ST(0) ;debug
 	FCOS
 	RET
 cos endp
 
-;przyk³adowa procedura - do podmiany na moj¹
-MyProc1 proc x: DWORD, y: DWORD
-	xor eax,eax
-	mov eax,x
-	mov ecx,y
-	ror ecx,1
-	shld eax,ecx,2
-	jnc ET1
-	mul y
-	ret
-ET1:
-	Mul x
-	Neg y
-	ret
-MyProc1 endp
+;zwróæ pochodn¹ n-tego stopnia funkcji sinus/cosinus (okreœlone w rejestrze flag) dla znanaj wartoœci a; n w EAX, a w ST(0); wynik w ST(0) (zastêpuje a)
+dtryg_k proc
+@dtryg_k_norm:
+	CMP EAX, 3 ;porównaj akumulator (stopieñ pochodnej) z liczb¹ trzy
+	JBE @dtryg_k_cont ;je¿eli a <= 3, id¿ dalej
+	SUB EAX, 4 ;zmniejsz stopieñ pochodnej o 4 (cyklicznoœæ pochodnych funkcji sinus/cosinus)
+	JMP @dtryg_k_norm ;powtórz sprawdzenie
+@dtryg_k_cont:
+	JE @dtryg_k_3 ;je¿eli n równe trzy, zwróæ trzeci¹ pochodn¹
+	TEST EAX, EAX ;ustawia rejestr flag bazuj¹c na zawartoœci akumulatora (w tym flagê zera)
+	JZ @dtryg_k_0 ;je¿eli n równe zero, zwróæ "zerow¹" pochodn¹ (funkcjê podstawow¹)
+	DEC EAX ;dekrementuj n
+	JZ @dtryg_k_1 ;je¿eli n równe 0 (by³o 1), zwróæ pierwsz¹ pochodn¹
+	;DEC EAX ;dekrementuj n
+	;JZ @dtryg_k_2 ;je¿eli n równe 0 (by³o 2), zwróæ drug¹ pochodn¹
+;@dtryg_k_2:
+@dtryg_k_0:
+@dtryg_k_1:
+@dtryg_k_3:
+	RET
+dtryg_k endp
+
+
+
+;podnosi ST(0) do ca³kowitej potêgi EAX, wynik zwraca przez ST(0) (nadpisuje argument)
+pow proc 
+	FLD1 ;jeden na stos zmiennoprzecinkowy (baza potêgowania)
+	;ST(0) = 1; ST(1) = arg
+	TEST EAX, EAX ;ustawia rejestr flag bazuj¹c na zawartoœci akumulatora
+	JZ @pow_endloop ;je¿eli zero, pomiñ potêgowanie (zwróæ jeden)
+	@pow_loop:
+		FMUL ST(0), ST(1) ;domna¿a podstawê potêgi do obecnego wyniku
+		DEC EAX ;dekrementuje akumulator (iterator pêtli potêguj¹cej)
+		JNZ @pow_loop ;je¿eli nie zero potêguj dalej
+	@pow_endloop: 
+	FSTP ST(1) ;usuwa podstawê potêgi ze stosu zmiennoprzecinkowego (przenosi wynik do ST(1) i zdejmuje stary wynik ze stosu)
+	RET
+pow endp
+
+;wybiera znan¹ najbli¿szy argument o znanej wartoœci; argument wejœciowy na szczycie stosu zmiennoprzecinkowego, wartoœæ zwracana do³o¿ona na stos
+chooseA proc
+	FLDPI ;za³aduj pi na stos zmiennoprzecinkowy
+	FDIV ST12 ;pi/12 na stosie zmiennoprzecinkowym
+	FCOMI ST,ST(1) ;porównanie pi/12 z argumentem wejœciowym
+	JAE @chooseA_0 ;je¿eli pi/12 >= x zwróæ zero
+	FMUL ST2_5 ;5pi/24 na stosie zmiennoprzecinkowym
+	FCOMI ST,ST(1) ;porównanie 5pi/24 z argumentem wejœciowym
+	JAE @chooseA_pi6 ;je¿eli 5pi/24 >= x zwróæ pi/6
+	FLD ST(0) ;drugie 5pi/24 na stos
+	FMUL ST1_4 ;7pi/24 na stosie zmiennoprzecinkowym
+	FCOMIp ST,ST(1) ;porównanie 7pi/24 z argumentem wejœciowym (zdejmuje 7pi/24 ze stosu)
+	JAE @chooseA_pi4 ;je¿eli 7pi/24 >= x zwróæ pi/4
+	FMUL ST2 ;5pi/12 na stosie zmiennoprzecinkowym
+	FCOMI ST,ST(1) ;porównanie 5pi/12 z argumentem wejœciowym
+	JAE @chooseA_pi3 ;je¿eli 5pi/12 >= x zwróæ pi/3
+;@chooseA_pi2 ;zwróæ pi/2
+	FSTP ST(0) ;usuñ górn¹ wartoœæ ze stosu zmiennoprzecinkowego (wartoœæ do obliczeñ, zostaje argument)
+	FLD STPI_2 ;zwróæ pi/2
+	RET
+@chooseA_pi3:
+	FSTP ST(0) ;usuñ górn¹ wartoœæ ze stosu zmiennoprzecinkowego (wartoœæ do obliczeñ, zostaje argument)
+	FLD STPI_3 ;zwróæ pi/3
+	RET
+@chooseA_pi4:
+	FSTP ST(0) ;usuñ górn¹ wartoœæ ze stosu zmiennoprzecinkowego (wartoœæ do obliczeñ, zostaje argument)
+	FLD STPI_4 ;zwróæ pi/4
+	RET
+@chooseA_pi6:
+	FSTP ST(0) ;usuñ górn¹ wartoœæ ze stosu zmiennoprzecinkowego (wartoœæ do obliczeñ, zostaje argument)
+	FLD STPI_6 ;zwróæ pi/6
+	RET
+@chooseA_0:
+	FSTP ST(0) ;usuñ górn¹ wartoœæ ze stosu zmiennoprzecinkowego (wartoœæ do obliczeñ, zostaje argument)
+	FLDZ ;zwróæ 0
+	RET
+chooseA endp
+
+;zwraca przez EAX silniê liczby w EAX
+factorial proc
+	PUSH EBX ;zachowaj EBX
+	MOV EBX, EAX ;argument do EBX
+	MOV EAX, 1 ;jeden do EAX (podstawa dla iloczynu)
+@factorial_loop:
+	CMP EBX, 1 ;warunek koñcz¹cy pêtle
+	JZ @factorial_end ;je¿eli EBX == 1 zakoñcz
+	MUL EBX ;domnó¿ kolejny czynnik do iloczynu
+	DEC EBX ;inkrementuj licznik pêtli
+	JMP @factorial_loop
+@factorial_end:
+	POP EBX ;przywróæ EBX
+	RET ;wynik w EAX
+factorial endp
 
 END DllEntry ;koniec biblioteki

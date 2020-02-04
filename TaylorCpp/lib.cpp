@@ -132,8 +132,8 @@ KnownValues chooseA(double x) {
 	else
 		return KnownValues::PI2;
 }
-//wartoœæ n-tej pochodnej funcji sinus w punkcie x
 
+//wartoœæ n-tej pochodnej funcji sinus w punkcie x
 constexpr double dsin_k(int n, KnownValues x) {
 	while (n > 3) {
 		n -= 4;
