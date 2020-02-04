@@ -35,10 +35,11 @@ DllEntry ENDP
 sin_i PROC point: DWORD, n: DWORD, m: DWORD
 	PUSH EDI ;rejestr EDI na stos
 
-	XOR EDI, EDI ;rejestr flag (EDI.1 sinus/cosinus; EDI.0 negacja)
+	XOR EDI, EDI ;rejestr flag (EDI.2 liczony sinus/cosinus; EDI.1 zlecono sinus/cosinus; EDI.0 negacja)
 	;BTR EDR, 1 ;flaga cosinus nieustawiona
+	;BTR EDI, 2 ;druga flaga cosinus nieustawiona
 
-	CALL tryg_i ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
+	CALL tryg_i ;wywo³aj funckjê licz¹c¹ (parametry pobierane rêcznie ze stosu)
 
 	POP EDI ;przywrócenie rejestru EDI
 	RET
@@ -48,10 +49,11 @@ sin_i ENDP
 cos_i PROC point: DWORD, n: DWORD, m: DWORD
 	PUSH EDI ;rejestr EDI na stos
 
-	XOR EDI, EDI ;rejestr flag (EDI.1 sinus/cosinus; EDI.0 negacja)
+	XOR EDI, EDI ;rejestr flag (EDI.2 liczony sinus/cosinus; EDI.1 zlecono sinus/cosinus; EDI.0 negacja)
 	BTS EDI, 1 ;ustaw flagê cosisus
+	BTS EDI, 2 ;ustaw drug¹ flagê cosinus
 
-	CALL tryg_i
+	CALL tryg_i ;wywo³aj funckjê licz¹c¹ (parametry pobierane rêcznie ze stosu)
 
 	POP EDI ;przywrócenie rejestru EDI
 	RET
@@ -72,6 +74,12 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 
 		BTR EDI, 0 ;zeruj flagê negacji
 		FLD QWORD PTR [EBX + ESI] ;wspó³rzêdna x obecnego punktu na stos zmiennoprzecinkowy
+
+		BT EDI, 1 ;sczytuje flagê zleconej funkcji
+		JC @sf ;je¿eli 1 ustaw flagê liczonej funkcji
+		BTR EDI, 2 ;je¿eli zero, zeruj flagê liczonej funkcji
+		JMP @n1 ;idŸ dalej
+@sf:	BTS EDI, 2 ;je¿eli EDI.1 = 1 to ustaw EDI.2 na jeden
 @n1: ;normalizacja x < 0
 		FLDZ ;zero na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie zera z obecnym x (zdejmuje 0 ze stosu)
@@ -92,16 +100,12 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 		FLD STPI_2 ;pi/2 na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie pi/2 z obecnym x (zdejmuje pi/2 ze stosu)
 		JBE @chFun ;je¿eli pi/2 <= x zamieñ funkcjê
-		BT EDI,1 ;sprawdŸ flagê funkcji
-		JC @cc ;je¿eli cosinus wywo³aj funkcjê cosinus
-		CALL sin ;je¿eli nie, wywo³aj funkcjê sin() (wynik przez stos zmiennoprzecinkowy)
+		CALL tryg ;wywo³aj odpowiedni¹ funkcjê trygonometryczn¹ (funkcja wybrana przez EDI.2) (wynik przez stos zmiennoprzecinkowy)
 		JMP @n5 ;idŸ dalej
-@cc: ;wywo³aj cosinus
-		CALL cos ;wywo³aj funkcjê cos() (wynik przez stos zmiennoprzecinkowy)
 @n5: ;test flagi negacji
 		BT EDI, 0 ;przenosi flagê negacji do CF
 		JNC @n6 ;je¿eli flaga negacji nie jest ustawiona pomiñ
-		FCHS ;je¿eli jest zaneguj y ; nie wiem dlaczego bez tego dzia³a, prawdopodobnie rozkaz FCOS zwraca coœ dziwnego
+		FCHS ;je¿eli jest zaneguj y
 @n6: ;zapis wyniku do pamiêci
 		FSTP QWORD PTR [EBX + ESI + COORDSIZE] ;zapis wyniku w polu wspó³rzêdnej y obecnego punktu
 
@@ -125,18 +129,26 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 @chFun: ;zamieñ funkcjê
 	FSUB STPI_2 ;x -= pi/2
 	BT EDI,1 ;sprawdŸ flagê funkcji
-	JNC @ccs ;je¿eli nie cosinus wywo³aj funkcjê cosinus
-	BTC EDI,0 ;je¿eli cosinus zaneguj
-	CALL sin ; i wywo³aj funkcjê sinus (wynik przez stos zmiennoprzecinkowy)
-	JMP @n5 ;powrót
-@ccs: ;wywo³aj funkcjê cosinus
-	CALL cos ;wywo³aj funkcjê cosinus (wynik przez stos zmiennoprzecinkowy)
+	JNC @chFun_skip ;je¿eli nie cosinus pomiñ negacjê
+	BTC EDI, 0 ;je¿eli cosinus zaneguj
+@chFun_skip:
+	BTC EDI, 2 ;zamieñ funkcjê
+	CALL tryg ; wywo³aj zamienion¹ funkcjê trygonometryczn¹ (wynik przez stos zmiennoprzecinkowy)
 	JMP @n5 ;powrót
 
 tryg_i ENDP
 
-;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji sinus w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego (zastêpuj¹c wartoœæ wejœciow¹)
-sin proc
+;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji sinus (EDI.2 = 0) b¹dŸ cosinus (EDI.2 = 1) w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego (zastêpuj¹c wartoœæ wejœciow¹)
+tryg proc
+
+	BT EDI, 2 ;sprawdŸ flagê liczonej funkcji
+	JC @tryg_cos ;je¿eli jest ustawiona, licz cosinus
+	FSIN ;je¿eli nie, licz sinus
+	RET
+@tryg_cos:
+	FCOS ;licz cosinus
+	RET
+
 	PUSH ESI ;kopia ESI na stosie
 	MOV ESI, [ESP + 2Ch] ;m do ESI - iterator pêtli sumy
 	CALL chooseA ;wybiera najbli¿szy znany argument (a we wzorze)
@@ -152,21 +164,10 @@ sin proc
 
 		DEC ESI ;dekrementacja iteratora
 		JNZ @sin_loop ;kontynuuj je¿eli nie zero
-	FSTP ST(0) ;debug
-	FSIN ;debug
 
 	POP ESI ;przywrócenie ESI
 	RET
-sin endp
-
-;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji cosinus w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego (zastêpuj¹c wartoœæ wejœciow¹)
-cos proc
-	CALL chooseA ;wybiera najbli¿szy znany argument (a we wzorze)
-	;ST(0) = a; ST(1) = x
-	FSTP ST(0) ;debug
-	FCOS
-	RET
-cos endp
+tryg endp
 
 ;zwróæ pochodn¹ n-tego stopnia funkcji sinus/cosinus (okreœlone w rejestrze flag) dla znanaj wartoœci a; n w EAX, a w ST(0); wynik w ST(0) (zastêpuje a)
 dtryg_k proc
@@ -190,7 +191,21 @@ dtryg_k proc
 	RET
 dtryg_k endp
 
-
+;constexpr double dsin_k(int n, KnownValues x) {
+;	while (n > 3) {
+;		n -= 4;
+;	}
+;	switch (n) {
+;	case 0:
+;		return sin_k(x);
+;	case 1:
+;		return cos_k(x);
+;	case 2:
+;		return -1 * sin_k(x);
+;	case 3:
+;		return -1 * cos_k(x);
+;	}
+;}
 
 ;podnosi ST(0) do ca³kowitej potêgi EAX, wynik zwraca przez ST(0) (nadpisuje argument)
 pow proc 
