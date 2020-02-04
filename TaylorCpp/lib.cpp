@@ -54,7 +54,7 @@ void _stdcall cos_i(Point* point, int n, int m) {
 double sin_t(double x) {
 	KnownValues a = chooseA(x);
 	double ret = 0;
-	for (int i = 0; i < G_M; i++) {
+	for (int i = 0; i <= G_M; i++) {
 		double poww = pow((x - getVal(a)), i);
 		double dsin_kk = dsin_k(i, a);
 		long factoriall = factorial(i);
@@ -65,7 +65,7 @@ double sin_t(double x) {
 double cos_t(double x) {
 	KnownValues a = chooseA(x);
 	double ret = 0;
-	for (int i = 0; i < G_M; i++) {
+	for (int i = 0; i <= G_M; i++) {
 		ret += pow((x - getVal(a)), i) * dcos_k(i, a) / factorial(i);
 	}
 	return ret;

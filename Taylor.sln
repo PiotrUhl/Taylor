@@ -8,6 +8,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TaylorCpp", "TaylorCpp\TaylorCpp.vcxproj", "{746FED87-47C2-4DCD-BB72-2901C6C2127C}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TaylorGUI", "TaylorGUI\TaylorGUI.vcxproj", "{0A92F0F2-94F4-43BD-8042-1451169D8D48}"
+	ProjectSection(ProjectDependencies) = postProject
+		{32BC1D84-DBFC-4F71-A9EE-D5F697213F16} = {32BC1D84-DBFC-4F71-A9EE-D5F697213F16}
+		{746FED87-47C2-4DCD-BB72-2901C6C2127C} = {746FED87-47C2-4DCD-BB72-2901C6C2127C}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "TestInterface", "TestInterface\TestInterface.vcxproj", "{28A4B49B-8092-45A1-B38B-D7E4AADAAD23}"
 	ProjectSection(ProjectDependencies) = postProject

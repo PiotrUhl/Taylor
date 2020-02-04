@@ -23,6 +23,10 @@ ST5 QWORD 5.0 ;sta³a 5
 ST2 QWORD 2.0 ;sta³a 2
 ST1_4 QWORD 1.4 ;sta³a 1.4 (7/5)
 ST2_5 QWORD 2.5 ;sta³a 2.5 (5/2)
+STSQ3_2 QWORD 0.86602540378443864676 ;sta³a sqrt(3)/2
+STSQ2_2 QWORD 0.70710678118654752440 ;sta³a sqrt(2)/2
+ST1_2 QWORD 0.5 ;sta³a 0.5 (1/2)
+
 .CODE ;sekcja programu
 
 ;procedura g³ówna biblioteki - niezbêdna do ³adowania dynamicznego
@@ -142,15 +146,6 @@ tryg_i ENDP
 
 ;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji sinus (EDI.2 = 0) b¹dŸ cosinus (EDI.2 = 1) w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego (zastêpuj¹c wartoœæ wejœciow¹)
 tryg proc
-
-	;BT EDI, 2 ;sprawdŸ flagê liczonej funkcji
-;	JC @tryg_cos ;je¿eli jest ustawiona, licz cosinus
-;	FSIN ;je¿eli nie, licz sinus
-;	RET
-;@tryg_cos:
-;	FCOS ;licz cosinus
-;	RET
-
 	PUSH ESI ;kopia ESI na stosie
 	MOV ESI, [ESP + 2Ch] ;m do ESI - iterator pêtli sumy
 	CALL chooseA ;wybiera najbli¿szy znany argument (a we wzorze)
@@ -246,13 +241,59 @@ dtryg_k proc
 	RET
 dtryg_k endp
 
+;zwraca wartoœæ funkcji sinus/cosinus (EDI.3) dla znanej wartoœci; argument w ST(0); rezultat do ST(0) (nadpisuje)
 tryg_k proc
 	BT EDI, 3 ;sprawdŸ flagê liczonej pochodnej
 	JC @tryg_cos ;je¿eli jest ustawiona, licz cosinus
-	FSIN ;je¿eli nie, licz sinus
-	RET
-@tryg_cos:
-	FCOS ;licz cosinus
+	;je¿eli nie licz sinus
+	FLDZ ;zero na stos zmiennoprzecinkowy
+	FCOMIP ST(0), ST(1) ;porównuje argument z zerem
+	JE @tryg_k_s0 ;je¿eli równe zwróæ zero
+	FLD STPI_2 ;pi/2 na stos
+	FCOMIP ST(0), ST(1) ;porównuje argument z pi/2
+	JE @tryg_k_s2 ;je¿eli równe zwróæ sin(pi/2)
+	FLD STPI_3 ;pi/3 na stos
+	FCOMIP ST(0), ST(1) ;porównuje argument z pi/3
+	JE @tryg_k_s3 ;je¿eli równe zwróæ sin(pi/3)
+	FLD STPI_4 ;pi/4 na stos
+	FCOMIP ST(0), ST(1) ;porównuje argument z pi/4
+	JE @tryg_k_s4 ;je¿eli równe zwróæ sin(pi/4)
+	FLD STPI_6 ;pi/6 na stos
+	FCOMIP ST(0), ST(1) ;porównuje argument z pi/6
+	JE @tryg_k_s6 ;je¿eli równe zwróæ sin(pi/6)
+@tryg_cos: ;zwróæ cosinus
+	FLDZ ;zero na stos zmiennoprzecinkowy
+	FCOMIP ST(0), ST(1) ;porównuje argument z zerem
+	JE @tryg_k_s2 ;je¿eli równe zwróæ cos(0)
+	FLD STPI_2 ;pi/2 na stos
+	FCOMIP ST(0), ST(1) ;porównuje argument z pi/2
+	JE @tryg_k_s0 ;je¿eli równe zwróæ cos(pi/2)
+	FLD STPI_3 ;pi/3 na stos
+	FCOMIP ST(0), ST(1) ;porównuje argument z pi/3
+	JE @tryg_k_s6 ;je¿eli równe zwróæ cos(pi/3)
+	FLD STPI_4 ;pi/4 na stos
+	FCOMIP ST(0), ST(1) ;porównuje argument z pi/4
+	JE @tryg_k_s4 ;je¿eli równe zwróæ cos(pi/4)
+	FLD STPI_6 ;pi/6 na stos
+	FCOMIP ST(0), ST(1) ;porównuje argument z pi/6
+	JE @tryg_k_s3 ;je¿eli równe zwróæ cos(pi/6)
+@tryg_k_s0:
+	FLDZ ;sin(0) = 0
+	JMP @tryg_k_end
+@tryg_k_s2:
+	FLD1 ;sin(pi/2) = 1 = cos (0)
+	JMP @tryg_k_end
+@tryg_k_s3:
+	FLD STSQ3_2 ;sin(pi/3) = sqrt(3)/2 = cos(pi/6)
+	JMP @tryg_k_end
+@tryg_k_s4:
+	FLD STSQ2_2 ;sin(pi/4) = sqrt(2)/2 = cos(pi/4)
+	JMP @tryg_k_end
+@tryg_k_s6:
+	FLD ST1_2 ;sin(pi/6) = 1/2 = cos(pi/3)
+	JMP @tryg_k_end
+@tryg_k_end:
+	FSTP ST(1) ;usuwa argument ze stosu
 	RET
 tryg_k endp
 
@@ -271,7 +312,7 @@ pow proc
 	RET
 pow endp
 
-;wybiera znan¹ najbli¿szy argument o znanej wartoœci; argument wejœciowy na szczycie stosu zmiennoprzecinkowego, wartoœæ zwracana do³o¿ona na stos
+;wybiera znan¹ najbli¿szy argument o znanej wartoœci; argument wejœciowy na szczycie stosu zmiennoprzecinkowego, wartoœæ zwracana do³o¿ona na stos; ustawia bity EDI.8, EDI.9 i EDI.10
 chooseA proc
 	FLDPI ;za³aduj pi na stos zmiennoprzecinkowy
 	FDIV ST12 ;pi/12 na stosie zmiennoprzecinkowym
