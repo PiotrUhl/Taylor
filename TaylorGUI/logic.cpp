@@ -223,38 +223,44 @@ void start() {
 	SendMessage(h_staticFile, WM_GETTEXT, fileLenght + 1, (LPARAM)fileBuffer);
 	char* fileName;
 	if (strcmp(fileBuffer, "<not chosen>") == 0) {
+		if (abs(inputData.rightEndpoint - inputData.leftEndpoint) < 101) {
+			TCHAR tempPath[MAX_PATH];
+			GetTempPath(MAX_PATH, tempPath);
+			TCHAR tempFile[MAX_PATH];
+			GetTempFileName(tempPath, "JA", 0, tempFile);
+			fileName = tempFile;
+			saveToFile(fileName, inputData, tab, inputData.nodes);
+		}
+	}
+	else {
+		fileName = fileBuffer;
+		saveToFile(fileName, inputData, tab, inputData.nodes);
+	}
+
+	//make image
+	if (abs(inputData.rightEndpoint - inputData.leftEndpoint) < 101) {
+		std::string command = "gnuplot -c draw.gp ";
+		command += fileName;
+		command += ' ';
 		TCHAR tempPath[MAX_PATH];
 		GetTempPath(MAX_PATH, tempPath);
 		TCHAR tempFile[MAX_PATH];
 		GetTempFileName(tempPath, "JA", 0, tempFile);
-		fileName = tempFile;
+		std::string imagePath = tempFile;
+		command += imagePath;
+		STARTUPINFO si;
+		PROCESS_INFORMATION pi;
+		ZeroMemory(&si, sizeof(si));
+		si.cb = sizeof(si);
+		ZeroMemory(&pi, sizeof(pi));
+		CreateProcess(NULL, (LPSTR)command.c_str(), NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+		WaitForSingleObject(pi.hProcess, 3000);
+		//draw image
+		std::wstring wc(imagePath.begin(), imagePath.end());
+		drawImage(wc.c_str());
 	}
-	else {
-		fileName = fileBuffer;
-	}
-
-	saveToFile(fileName, inputData, tab, inputData.nodes);
-
-	//make image
-	std::string command = "gnuplot -c draw.gp ";
-	command += fileName;
-	command += ' ';
-	TCHAR tempPath[MAX_PATH];
-	GetTempPath(MAX_PATH, tempPath);
-	TCHAR tempFile[MAX_PATH];
-	GetTempFileName(tempPath, "JA", 0, tempFile);
-	std::string imagePath = tempFile;
-	command += imagePath;
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-	ZeroMemory(&si, sizeof(si));
-	si.cb = sizeof(si);
-	ZeroMemory(&pi, sizeof(pi));
-	CreateProcess(NULL,	(LPSTR)command.c_str(),	NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
-	WaitForSingleObject(pi.hProcess, 3000);
-	//draw image
-	std::wstring wc(imagePath.begin(), imagePath.end());
-	drawImage(wc.c_str());
+	else
+		drawImage(NULL);
 }
 
 void saveToFile(char* path, InputData inputData, Point* tab, int n) {
@@ -306,11 +312,15 @@ void printTime(double time) {
 }
 
 void drawImage(const wchar_t* path) {
-	HBITMAP hBitmap = NULL;
-	Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(path, false);
-	if (bitmap) {
-		bitmap->GetHBITMAP(0, &hBitmap);
-		delete bitmap;
+	if (path != NULL) {
+		HBITMAP hBitmap = NULL;
+		Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(path, false);
+		if (bitmap) {
+			bitmap->GetHBITMAP(0, &hBitmap);
+			delete bitmap;
+		}
+		SendMessage(h_staticImage, STM_SETIMAGE, (WPARAM)IMAGE_BITMAP, (LPARAM)hBitmap);
 	}
-	SendMessage(h_staticImage, STM_SETIMAGE, (WPARAM)IMAGE_BITMAP, (LPARAM)hBitmap);
+	else
+		SendMessage(h_staticImage, STM_SETIMAGE, (WPARAM)IMAGE_BITMAP, (LPARAM)NULL);
 }
