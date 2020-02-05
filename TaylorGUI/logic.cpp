@@ -302,9 +302,9 @@ void start() {
 
 	//make image
 	if (abs(inputData.rightEndpoint - inputData.leftEndpoint) < 101) {
-		std::string command = "gnuplot -c draw.gp ";
+		std::string command = "gnuplot -c draw.gp \"";
 		command += inputData.filePath;
-		command += ' ';
+		command += "\" ";
 		TCHAR tempPath[MAX_PATH];
 		GetTempPath(MAX_PATH, tempPath);
 		TCHAR tempFile[MAX_PATH];
