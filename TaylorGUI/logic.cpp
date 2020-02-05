@@ -162,8 +162,8 @@ std::pair<Point*, double> calculate(InputData inputData) {
 	for (int i = 0; i < inputData.nodes; i++) {
 		tab[i].x = inputData.leftEndpoint + constTemp * i;
 	}
-	void(_stdcall*sin_i)(Point*, int, int) = NULL;
-	void(_stdcall*cos_i)(Point*, int, int) = NULL;
+	void(_fastcall*sin_i)(Point*, int, int) = NULL;
+	void(_fastcall*cos_i)(Point*, int, int) = NULL;
 	HINSTANCE hGetProcIDDLL = NULL;
 
 	//selecting and loading library
@@ -172,12 +172,12 @@ std::pair<Point*, double> calculate(InputData inputData) {
 		if (!hGetProcIDDLL) {
 			throw std::runtime_error("Library loading error!");
 		}
-		sin_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "_sin_i@12");
+		sin_i = (void(_fastcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "sin_i");
 		if (!sin_i) {
 			FreeLibrary(hGetProcIDDLL);
 			throw std::runtime_error("Function loading error (sinus)!");
 		}
-		cos_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "_cos_i@12");
+		cos_i = (void(_fastcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
 		if (!cos_i) {
 			FreeLibrary(hGetProcIDDLL);
 			throw std::runtime_error("Function loading error (cosinus)!");
@@ -188,12 +188,12 @@ std::pair<Point*, double> calculate(InputData inputData) {
 		if (!hGetProcIDDLL) {
 			throw std::runtime_error("Library loading error!");
 		}
-		sin_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "sin_i");
+		sin_i = (void(_fastcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "sin_i");
 		if (!sin_i) {
 			FreeLibrary(hGetProcIDDLL);
 			throw std::runtime_error("Function loading error (sinus)!");
 		}
-		cos_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
+		cos_i = (void(_fastcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
 		if (!cos_i) {
 			FreeLibrary(hGetProcIDDLL);
 			throw std::runtime_error("Function loading error (cosinus)!");
@@ -203,7 +203,7 @@ std::pair<Point*, double> calculate(InputData inputData) {
 		throw std::runtime_error("Unexpected error!"); //should never happen
 	}
 
-	void(_stdcall*fun_i)(Point*, int, int);
+	void(_fastcall*fun_i)(Point*, int, int);
 	//choosing library
 	if (inputData.function == InputData::Function::SIN) {
 		fun_i = sin_i;

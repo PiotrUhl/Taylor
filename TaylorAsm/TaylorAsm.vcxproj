@@ -168,6 +168,9 @@
       <EnableUAC>false</EnableUAC>
       <ModuleDefinitionFile>main.def</ModuleDefinitionFile>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+      <ForceSymbolReferences>
+      </ForceSymbolReferences>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <MASM>
       <IncludePaths>%(IncludePaths)</IncludePaths>

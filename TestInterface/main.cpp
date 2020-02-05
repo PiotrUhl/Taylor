@@ -13,12 +13,12 @@ int main() {
 		tab1[i].x = tab2[i].x = (double)i*0.2;
 	}
 
-	void(_stdcall*sin_i_asm)(Point*, int, int) = NULL;
-	void(_stdcall*sin_i_cpp)(Point*, int, int) = NULL;
+	void(_fastcall*sin_i_asm)(Point*, int, int) = NULL;
+	void(_fastcall*sin_i_cpp)(Point*, int, int) = NULL;
 	HINSTANCE hGetProcIDDLLAsm = LoadLibrary(L"TAYLORASM.dll");
-	sin_i_asm = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLLAsm, "sin_i");
+	sin_i_asm = (void(_fastcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLLAsm, "sin_i");
 	HINSTANCE hGetProcIDDLLCpp = LoadLibrary(L"TAYLORCPP.dll");
-	sin_i_cpp = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLLCpp, "_sin_i@12");
+	sin_i_cpp = (void(_fastcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLLCpp, "_sin_i@12");
 
 	sin_i_cpp(tab2, n, 10);
 	sin_i_asm(tab1, n, 10);
@@ -61,18 +61,18 @@ int main() {
 	FreeLibrary(hGetProcIDDLLAsm);
 	/*int x = 3, y = 4, z = 0;
 
-	int(_stdcall*MyProc1)(DWORD, DWORD) = NULL;
-	void(_stdcall*sin_i)(Point*, DWORD, DWORD) = NULL;
+	int(_fastcall*MyProc1)(DWORD, DWORD) = NULL;
+	void(_fastcall*sin_i)(Point*, DWORD, DWORD) = NULL;
 
 	HINSTANCE hGetProcIDDLL = LoadLibrary(L"TaylorAsm.dll");
 	if (!hGetProcIDDLL) {
 		return -1;
 	}
-	MyProc1 = (int(_stdcall*)(DWORD, DWORD))GetProcAddress(hGetProcIDDLL, "MyProc1");
+	MyProc1 = (int(_fastcall*)(DWORD, DWORD))GetProcAddress(hGetProcIDDLL, "MyProc1");
 	if (!MyProc1) {
 		return -2;
 	}
-	sin_i = (void(_stdcall*)(Point*, DWORD, DWORD))GetProcAddress(hGetProcIDDLL, "sin_i");
+	sin_i = (void(_fastcall*)(Point*, DWORD, DWORD))GetProcAddress(hGetProcIDDLL, "sin_i");
 	if (!sin_i) {
 		return -3;
 	}

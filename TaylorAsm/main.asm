@@ -1,16 +1,13 @@
 ;-------------------------------------------------------------------------
-.386 ;zestaw instrukcji Intel 80386
-
-.MODEL FLAT, STDCALL ;model pamiêci, konwencja wywo³añ
 
 OPTION CASEMAP:NONE ;rozpoznawanie wielkoœci liter w etykietach
 
-INCLUDE \masm32\include\windows.inc ;do³¹czanie plików nag³ówkowych
+INCLUDE \masm64\include64\win64.inc ;do³¹czanie plików nag³ówkowych
 
 POINTSIZE EQU 16 ;rozmiar struktury Point
 COORDSIZE EQU 8 ;rozmiar pojedynczej wspó³rzêdnej w strukturze Point
 
-.DATA ;sekcja danych
+_DATA SEGMENT ;sekcja danych
 
 ;M_PI QWORD 3.14159265358979323846 ;liczba pi
 ST2PI QWORD 6.28318530717958647692 ;podwojona liczba pi - prymitywna optymalizacja, powinien to za mnie policzyæ preprocesor
@@ -27,64 +24,87 @@ STSQ3_2 QWORD 0.86602540378443864676 ;sta³a sqrt(3)/2
 STSQ2_2 QWORD 0.70710678118654752440 ;sta³a sqrt(2)/2
 ST1_2 QWORD 0.5 ;sta³a 0.5 (1/2)
 
-.CODE ;sekcja programu
+_DATA ENDS
+_TEXT SEGMENT ;sekcja programu
 
 ;procedura g³ówna biblioteki - niezbêdna do ³adowania dynamicznego
-DllEntry PROC hInstDLL:HINSTANCE, reason:DWORD, reserved1:DWORD
-	MOV EAX, TRUE
+_DllMainCRTStartup PROC
+	MOV RAX, TRUE
 	RET
-DllEntry ENDP
+_DllMainCRTStartup ENDP
 
 ;sinus dla  przedzia³u
-sin_i PROC point: DWORD, n: DWORD, m: DWORD
-	PUSH EDI ;rejestr EDI na stos
+sin_i PROC point: QWORD, n: DWORD, m: DWORD ;RCX - pointer; EDX - n; R8D - m
+	;kopia rejestrów
+	PUSH RDI
+	PUSH R12
+	PUSH R13
+	PUSH R14
 
-	XOR EDI, EDI ;rejestr flag (EDI.2 liczony sinus/cosinus; EDI.1 zlecono sinus/cosinus; EDI.0 negacja)
-	;BTR EDR, 1 ;flaga cosinus nieustawiona
-	;BTR EDI, 2 ;druga flaga cosinus nieustawiona
+	MOV R12, RCX ;adres bazowy tablicy punktów
+	MOV R13D, EDX ;rozmiar tablicy punktów
+	MOV R14D, R8D ;dok³adnoœæ obliczeñ
+
+	XOR RDI, RDI ;rejestr flag (RDI.2 liczony sinus/cosinus; RDI.1 zlecono sinus/cosinus; RDI.0 negacja)
+	;BTR RDI, 1 ;flaga cosinus nieustawiona
+	;BTR RDI, 2 ;druga flaga cosinus nieustawiona
 
 	CALL tryg_i ;wywo³aj funckjê licz¹c¹ (parametry pobierane rêcznie ze stosu)
 
-	POP EDI ;przywrócenie rejestru EDI
+	;przywrócenie rejestrów
+	POP R14
+	POP R13 
+	POP R12
+	POP RDI
 	RET
 sin_i ENDP
 
 ;cosinus dla  przedzia³u
-cos_i PROC point: DWORD, n: DWORD, m: DWORD
-	PUSH EDI ;rejestr EDI na stos
+cos_i PROC point: QWORD, n: DWORD, m: DWORD;RCX - pointer; EDX - n; R8D - m
+	;kopia rejestrów
+	PUSH RDI
+	PUSH R12
+	PUSH R13
+	PUSH R14
 
-	XOR EDI, EDI ;rejestr flag (EDI.2 liczony sinus/cosinus; EDI.1 zlecono sinus/cosinus; EDI.0 negacja)
-	BTS EDI, 1 ;ustaw flagê cosisus
-	BTS EDI, 2 ;ustaw drug¹ flagê cosinus
+	MOV R12, RCX ;adres bazowy tablicy punktów
+	MOV R13D, EDX ;rozmiar tablicy punktów
+	MOV R14D, R8D ;dok³adnoœæ obliczeñ
+
+	XOR RDI, RDI ;rejestr flag (RDI.2 liczony sinus/cosinus; RDI.1 zlecono sinus/cosinus; RDI.0 negacja)
+	BTS RDI, 1 ;ustaw flagê cosisus
+	BTS RDI, 2 ;ustaw drug¹ flagê cosinus
 
 	CALL tryg_i ;wywo³aj funckjê licz¹c¹ (parametry pobierane rêcznie ze stosu)
 
-	POP EDI ;przywrócenie rejestru EDI
+	;przywrócenie rejestrów
+	POP R14
+	POP R13 
+	POP R12
+	POP RDI
 	RET
 cos_i ENDP
 
-;funkcja sinus/cosinus dla przedzia³u (cos dla EDI.1 = 1)
+;funkcja sinus/cosinus dla przedzia³u (cos dla RDI.1 = 1)
 tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 	;inicjalizacja
-	PUSH EBX
-	PUSH ESI
-	PUSH ECX
+	PUSH RSI
+	;PUSH RCX
 
-	MOV EBX, [ESP + 1Ch] ;adres bazowy tablicy punktów
-	XOR ESI, ESI ;iterator tablicy punktów
-	XOR ECX, ECX ;iterator g³ównej pêtli
+	XOR RSI, RSI ;iterator tablicy punktów
+	XOR RCX, RCX ;iterator g³ównej pêtli
 
 @loop: ;g³ówna pêtla po tablicy point
 
-		BTR EDI, 0 ;zeruj flagê negacji
-		FLD QWORD PTR [EBX + ESI] ;wspó³rzêdna x obecnego punktu na stos zmiennoprzecinkowy
+		BTR RDI, 0 ;zeruj flagê negacji
+		FLD QWORD PTR [R12 + RSI] ;wspó³rzêdna x obecnego punktu na stos zmiennoprzecinkowy
 
-		;kopiuj flagê EDI.1 do EDI.2
-		BT EDI, 1 ;sczytuje flagê zleconej funkcji
+		;kopiuj flagê RDI.1 do RDI.2
+		BT RDI, 1 ;sczytuje flagê zleconej funkcji
 		JC @sf ;je¿eli 1 ustaw flagê liczonej funkcji
-		BTR EDI, 2 ;je¿eli zero, zeruj flagê liczonej funkcji
+		BTR RDI, 2 ;je¿eli zero, zeruj flagê liczonej funkcji
 		JMP @n1 ;idŸ dalej
-@sf:	BTS EDI, 2 ;je¿eli EDI.1 = 1 to ustaw EDI.2 na jeden
+@sf:	BTS RDI, 2 ;je¿eli RDI.1 = 1 to ustaw RDI.2 na jeden
 
 @n1: ;normalizacja x < 0
 		FLDZ ;zero na stos zmiennoprzecinkowy
@@ -106,48 +126,47 @@ tryg_i PROC ;wywo³aj funckjê licz¹c¹ (parametry pobierane ze stosu)
 		FLD STPI_2 ;pi/2 na stos zmiennoprzecinkowy
 		FCOMIP ST,ST(1) ;porównanie pi/2 z obecnym x (zdejmuje pi/2 ze stosu)
 		JBE @chFun ;je¿eli pi/2 <= x zamieñ funkcjê
-		CALL tryg ;wywo³aj odpowiedni¹ funkcjê trygonometryczn¹ (funkcja wybrana przez EDI.2) (wynik przez stos zmiennoprzecinkowy)
+		CALL tryg ;wywo³aj odpowiedni¹ funkcjê trygonometryczn¹ (funkcja wybrana przez RDI.2) (wynik przez stos zmiennoprzecinkowy)
 		JMP @n5 ;idŸ dalej
 @n5: ;test flagi negacji
-		BT EDI, 0 ;przenosi flagê negacji do CF
+		BT RDI, 0 ;przenosi flagê negacji do CF
 		JNC @n6 ;je¿eli flaga negacji nie jest ustawiona pomiñ
 		FCHS ;je¿eli jest zaneguj y
 @n6: ;zapis wyniku do pamiêci
-		FSTP QWORD PTR [EBX + ESI + COORDSIZE] ;zapis wyniku w polu wspó³rzêdnej y obecnego punktu
+		FSTP QWORD PTR [R12 + RSI + COORDSIZE] ;zapis wyniku w polu wspó³rzêdnej y obecnego punktu
 
-		ADD ESI, POINTSIZE ;inkrementacja iteratora tablicy
-		INC ECX ;inkrementacja iteratora pêtli
-		CMP ECX, [ESP + 20h] ;test warunku koñcowego pêtli [ESP + 20h] to n
+		ADD RSI, POINTSIZE ;inkrementacja iteratora tablicy
+		INC RCX ;inkrementacja iteratora pêtli
+		CMP RCX, R13 ;test warunku koñcowego pêtli; R13 to n
 		JB @loop
 
 	;przywrócenie stanu rejestrów
-	POP ECX
-	POP ESI
-	POP EBX
+	;POP RCX
+	POP RSI
 	RET
 
 @ne: ;obs³uga x > M_PI - ustawia flagê negacji o odejmuje pó³ pi
-	BTS EDI,0 ;ustaw flagê negacji
+	BTS RDI,0 ;ustaw flagê negacji
 	FLDPI ;pi na stos zmiennoprzecinkowey
 	FSUBP ;x -= pi
 	JMP @n4 ;powrót
 
 @chFun: ;zamieñ funkcjê
 	FSUB STPI_2 ;x -= pi/2
-	BT EDI,1 ;sprawdŸ flagê funkcji
+	BT RDI,1 ;sprawdŸ flagê funkcji
 	JNC @chFun_skip ;je¿eli nie cosinus pomiñ negacjê
-	BTC EDI, 0 ;je¿eli cosinus zaneguj
+	BTC RDI, 0 ;je¿eli cosinus zaneguj
 @chFun_skip:
-	BTC EDI, 2 ;zamieñ funkcjê
+	BTC RDI, 2 ;zamieñ funkcjê
 	CALL tryg ; wywo³aj zamienion¹ funkcjê trygonometryczn¹ (wynik przez stos zmiennoprzecinkowy)
 	JMP @n5 ;powrót
 
 tryg_i ENDP
 
-;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji sinus (EDI.2 = 0) b¹dŸ cosinus (EDI.2 = 1) w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego (zastêpuj¹c wartoœæ wejœciow¹)
+;zwraca na szczyt stosu zmiennoprzecinkowego wartoœæ funkcji sinus (RDI.2 = 0) b¹dŸ cosinus (RDI.2 = 1) w puncie umieszczonym na szczycie stosu zmiennoprzecinkowego (zastêpuj¹c wartoœæ wejœciow¹)
 tryg proc
-	PUSH ESI ;kopia ESI na stosie
-	MOV ESI, [ESP + 2Ch] ;m do ESI - iterator pêtli sumy
+	PUSH RSI ;kopia RSI na stosie
+	MOV RSI, R14 ;m do RSI - iterator pêtli sumy
 	CALL chooseA ;wybiera najbli¿szy znany argument (a we wzorze)
 	;ST(0) = a; ST(1) = x
 	FLDZ ;zero na stos zmiennoprzecinkowy (baza sumy - przysz³y wynik)
@@ -157,31 +176,31 @@ tryg proc
 		;ST(0) = x; ST(1) = sum; ST(2) = a; ST(3) = x
 		FSUB ST(0), ST(2) ;podstawa potêgi (x - a) na stos zmiennoprzecinkowy
 		;ST(0) = x - a; ST(1) = sum; ST(2) = a; ST(3) = x
-		MOV EAX, ESI ;wyk³adnik potêgi do akumulatora
-		CALL pow ;ST(0) <- ST(0)^EAX
+		MOV RAX, RSI ;wyk³adnik potêgi do akumulatora
+		CALL pow ;ST(0) <- ST(0)^RAX
 		;ST(0) = (x - a)^i; ST(1) = sum; ST(2) = a; ST(3) = x
 
 		FLD ST(2) ;kopia a na stos zmiennoprzecinkowy
 		;ST(0) = a; ST(1) = (x - a)^i; ST(2) = sum; ST(3) = a; ST(4) = x
-		MOV EAX, ESI ;stopieñ pochodnej do akumulatora
+		MOV RAX, RSI ;stopieñ pochodnej do akumulatora
 		CALL dtryg_k ;oblicz pochodn¹ dla znanego argumentu
 		;ST(0) = d^i(a); ST(1) = (x - a)^i; ST(2) = sum; ST(3) = a; ST(4) = x
 
 		FMULP ;ST(0) <- (x - a)^i * d^i(a)
 		;ST(0) = (x - a)^i * d^i(a); ST(1) = sum; ST(2) = a; ST(3) = x
 
-		MOV EAX, ESI ;baza silnii do akumulatora
-		CALL factorial ;EAX <- EAX!
-		PUSH EAX ;silnia na stos (zwyk³y)
-		FILD DWORD PTR [ESP] ;silnia na stos zmiennoprzecinkowy
+		MOV RAX, RSI ;baza silnii do akumulatora
+		CALL factorial ;RAX <- RAX!
+		PUSH RAX ;silnia na stos (zwyk³y)
+		FILD DWORD PTR [RSP] ;silnia na stos zmiennoprzecinkowy
 		FDIVP ST(1), ST(0) ;podziel obecny wynik przez silniê
-		POP EAX ;sprz¹tanie stosu (zwyk³ego)
+		POP RAX ;sprz¹tanie stosu (zwyk³ego)
 		;ST(0) = (x - a)^i * d^i(a) / i!; ST(1) = sum; ST(2) = a; ST(3) = x
 
 		FADDP ST(1), ST(0) ;dodaj obecny wynik do sumy i zdejmij ze stosu
 		;ST(0) = sum+; ST(1) = a; ST(2) = x
 
-		DEC ESI ;dekrementacja iteratora
+		DEC RSI ;dekrementacja iteratora
 		JNS @sin_loop ;kontynuuj pêtlê je¿eli licznik nieujemny
 
 	FSTP ST(1) ;zdejmij a ze stosu
@@ -189,33 +208,33 @@ tryg proc
 	FSTP ST(1) ;zdejmij s ze stosu
 	;ST(0) = sum
 
-	POP ESI ;przywrócenie ESI
+	POP RSI ;przywrócenie RSI
 	RET
 tryg endp
 
-;zwróæ pochodn¹ n-tego stopnia funkcji sinus/cosinus (okreœlone w rejestrze flag EDI.2) dla znanaj wartoœci a; n w EAX, a w ST(0); wynik w ST(0) (zastêpuje a)
+;zwróæ pochodn¹ n-tego stopnia funkcji sinus/cosinus (okreœlone w rejestrze flag RDI.2) dla znanaj wartoœci a; n w RAX, a w ST(0); wynik w ST(0) (zastêpuje a)
 dtryg_k proc
-	;kopiujê flagê EDI.2 do EDI.3
-	BT EDI, 2 ;sczytuje flagê liczonej funkcji
+	;kopiujê flagê RDI.2 do RDI.3
+	BT RDI, 2 ;sczytuje flagê liczonej funkcji
 	JC @dtryg_k_sf ;je¿eli 1 ustaw flagê liczonej pochodnej
-	BTR EDI, 3 ;je¿eli zero, zeruj flagê liczonej pochodnej
+	BTR RDI, 3 ;je¿eli zero, zeruj flagê liczonej pochodnej
 	JMP @dtryg_k_norm ;idŸ dalej
 @dtryg_k_sf:
-	BTS EDI, 3 ;je¿eli EDI.2 = 1 to ustaw EDI.3 na jeden
+	BTS RDI, 3 ;je¿eli RDI.2 = 1 to ustaw RDI.3 na jeden
 
 	@dtryg_k_norm:
-		CMP EAX, 3 ;porównaj akumulator (stopieñ pochodnej) z liczb¹ trzy
+		CMP RAX, 3 ;porównaj akumulator (stopieñ pochodnej) z liczb¹ trzy
 		JBE @dtryg_k_cont ;je¿eli a <= 3, id¿ dalej
-		SUB EAX, 4 ;zmniejsz stopieñ pochodnej o 4 (cyklicznoœæ pochodnych funkcji sinus/cosinus)
+		SUB RAX, 4 ;zmniejsz stopieñ pochodnej o 4 (cyklicznoœæ pochodnych funkcji sinus/cosinus)
 		JMP @dtryg_k_norm ;powtórz sprawdzenie
 
 @dtryg_k_cont:
 	JE @dtryg_k_3 ;je¿eli n równe trzy, zwróæ trzeci¹ pochodn¹
-	TEST EAX, EAX ;ustawia rejestr flag bazuj¹c na zawartoœci akumulatora (w tym flagê zera)
+	TEST RAX, RAX ;ustawia rejestr flag bazuj¹c na zawartoœci akumulatora (w tym flagê zera)
 	JZ @dtryg_k_0 ;je¿eli n równe zero, zwróæ "zerow¹" pochodn¹ (funkcjê podstawow¹)
-	DEC EAX ;dekrementuj n
+	DEC RAX ;dekrementuj n
 	JZ @dtryg_k_1 ;je¿eli n równe 0 (by³o 1), zwróæ pierwsz¹ pochodn¹
-	;DEC EAX ;dekrementuj n
+	;DEC RAX ;dekrementuj n
 	;JZ @dtryg_k_2 ;je¿eli n równe 0 (by³o 2), zwróæ drug¹ pochodn¹
 ;@dtryg_k_2:
 	CALL tryg_k ;wywo³aj liczon¹ funkcjê
@@ -225,25 +244,25 @@ dtryg_k proc
 	CALL tryg_k ;wywo³aj liczon¹ funkcjê
 	RET
 @dtryg_k_1:
-	BTC EDI, 3 ;zamieñ liczon¹ funkcjê
+	BTC RDI, 3 ;zamieñ liczon¹ funkcjê
 	CALL tryg_k
-	BT EDI, 2 ;sprawdŸ liczon¹ funkcjê
+	BT RDI, 2 ;sprawdŸ liczon¹ funkcjê
 	JNC @ret ;je¿eli sinus zakoñcz
 	FCHS ;je¿eli cosinus zmieñ znak wyniku
 	RET
 @dtryg_k_3:
-	BTC EDI, 3 ;zamieñ liczon¹ funkcjê
+	BTC RDI, 3 ;zamieñ liczon¹ funkcjê
 	CALL tryg_k
-	BT EDI, 2 ;sprawdŸ liczon¹ funkcjê
+	BT RDI, 2 ;sprawdŸ liczon¹ funkcjê
 	JC @ret ;je¿eli cosinus zakoñcz
 	FCHS ;je¿eli sinus zmieñ znak wyniku
 @ret:
 	RET
 dtryg_k endp
 
-;zwraca wartoœæ funkcji sinus/cosinus (EDI.3) dla znanej wartoœci; argument w ST(0); rezultat do ST(0) (nadpisuje)
+;zwraca wartoœæ funkcji sinus/cosinus (RDI.3) dla znanej wartoœci; argument w ST(0); rezultat do ST(0) (nadpisuje)
 tryg_k proc
-	BT EDI, 3 ;sprawdŸ flagê liczonej pochodnej
+	BT RDI, 3 ;sprawdŸ flagê liczonej pochodnej
 	JC @tryg_cos ;je¿eli jest ustawiona, licz cosinus
 	;je¿eli nie licz sinus
 	FLDZ ;zero na stos zmiennoprzecinkowy
@@ -297,22 +316,22 @@ tryg_k proc
 	RET
 tryg_k endp
 
-;podnosi ST(0) do ca³kowitej potêgi EAX, wynik zwraca przez ST(0) (nadpisuje argument)
+;podnosi ST(0) do ca³kowitej potêgi RAX, wynik zwraca przez ST(0) (nadpisuje argument)
 pow proc 
 	FLD1 ;jeden na stos zmiennoprzecinkowy (baza potêgowania)
 	;ST(0) = 1; ST(1) = arg
-	TEST EAX, EAX ;ustawia rejestr flag bazuj¹c na zawartoœci akumulatora
+	TEST RAX, RAX ;ustawia rejestr flag bazuj¹c na zawartoœci akumulatora
 	JZ @pow_endloop ;je¿eli zero, pomiñ potêgowanie (zwróæ jeden)
 	@pow_loop:
 		FMUL ST(0), ST(1) ;domna¿a podstawê potêgi do obecnego wyniku
-		DEC EAX ;dekrementuje akumulator (iterator pêtli potêguj¹cej)
+		DEC RAX ;dekrementuje akumulator (iterator pêtli potêguj¹cej)
 		JNZ @pow_loop ;je¿eli nie zero potêguj dalej
 	@pow_endloop: 
 	FSTP ST(1) ;usuwa podstawê potêgi ze stosu zmiennoprzecinkowego (przenosi wynik do ST(1) i zdejmuje stary wynik ze stosu)
 	RET
 pow endp
 
-;wybiera znan¹ najbli¿szy argument o znanej wartoœci; argument wejœciowy na szczycie stosu zmiennoprzecinkowego, wartoœæ zwracana do³o¿ona na stos; ustawia bity EDI.8, EDI.9 i EDI.10
+;wybiera znan¹ najbli¿szy argument o znanej wartoœci; argument wejœciowy na szczycie stosu zmiennoprzecinkowego, wartoœæ zwracana do³o¿ona na stos; ustawia bity RDI.8, RDI.9 i RDI.10
 chooseA proc
 	FLDPI ;za³aduj pi na stos zmiennoprzecinkowy
 	FDIV ST12 ;pi/12 na stosie zmiennoprzecinkowym
@@ -350,20 +369,22 @@ chooseA proc
 	RET
 chooseA endp
 
-;zwraca przez EAX silniê liczby w EAX
+;zwraca przez RAX silniê liczby w RAX
 factorial proc
-	PUSH EBX ;zachowaj EBX
-	MOV EBX, EAX ;argument do EBX
-	MOV EAX, 1 ;jeden do EAX (podstawa dla iloczynu)
+	PUSH RBX ;zachowaj RBX
+	MOV RBX, RAX ;argument do RBX
+	MOV RAX, 1 ;jeden do RAX (podstawa dla iloczynu)
 @factorial_loop:
-	CMP EBX, 1 ;warunek koñcz¹cy pêtle
-	JBE @factorial_end ;je¿eli EBX == 1 zakoñcz
-	MUL EBX ;domnó¿ kolejny czynnik do iloczynu
-	DEC EBX ;inkrementuj licznik pêtli
+	CMP RBX, 1 ;warunek koñcz¹cy pêtle
+	JBE @factorial_end ;je¿eli RBX == 1 zakoñcz
+	MUL RBX ;domnó¿ kolejny czynnik do iloczynu
+	DEC RBX ;inkrementuj licznik pêtli
 	JMP @factorial_loop
 @factorial_end:
-	POP EBX ;przywróæ EBX
-	RET ;wynik w EAX
+	POP RBX ;przywróæ RBX
+	RET ;wynik w RAX
 factorial endp
 
-END DllEntry ;koniec biblioteki
+_TEXT ENDS
+
+END

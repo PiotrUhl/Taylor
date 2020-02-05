@@ -4,7 +4,7 @@
 
 int G_M = 0;
 
-void _stdcall sin_i(Point* point, int n, int m) {
+void _fastcall sin_i(Point* point, int n, int m) {
 	G_M = m;
 	for (int i = 0; i < n; i++) {
 		double x = point[i].x;
@@ -27,7 +27,7 @@ void _stdcall sin_i(Point* point, int n, int m) {
 		}
 	}
 }
-void _stdcall cos_i(Point* point, int n, int m) {
+void _fastcall cos_i(Point* point, int n, int m) {
 	G_M = m;
 	for (int i = 0; i < n; i++) {
 		double x = point[i].x;
