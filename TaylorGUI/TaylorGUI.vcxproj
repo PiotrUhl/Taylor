@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="cmd.cpp" />
     <ClCompile Include="globals.cpp" />
     <ClCompile Include="logic.cpp" />
     <ClCompile Include="msgloop.cpp" />
@@ -155,6 +156,7 @@
     <ClCompile Include="winmain.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="cmd.h" />
     <ClInclude Include="globals.h" />
     <ClInclude Include="dimensions.h" />
     <ClInclude Include="inputData.h" />

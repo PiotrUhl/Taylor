@@ -32,8 +32,7 @@ bool chooseFile() {
 	return false;
 }
 
-void start() {
-	//input values
+InputData getInputData() {
 	InputData inputData;
 	if (Button_GetCheck(h_radioFunSin) == BST_CHECKED) {
 		inputData.function = InputData::Function::SIN;
@@ -43,22 +42,28 @@ void start() {
 	}
 	else {
 		MessageBox(g_windowMain, "No function selected!", "Error", MB_ICONERROR);
-		return;
+		inputData.error = true;
+		return inputData;
 	}
-	
+
 	int leftLenght = GetWindowTextLength(h_editLeftEndpoint) + 1;
-    char* leftBuffer = new char[leftLenght];
+	char* leftBuffer = new char[leftLenght];
 	GetWindowText(h_editLeftEndpoint, leftBuffer, leftLenght);
 	try {
 		inputData.leftEndpoint = std::stod(leftBuffer);
+		delete[] leftBuffer;
 	}
 	catch (const std::invalid_argument&) {
 		MessageBox(g_windowMain, "Left endpoint is not a valid double!", "Error", MB_ICONERROR);
-		return;
+		inputData.error = true;
+		delete[] leftBuffer;
+		return inputData;
 	}
 	catch (const std::out_of_range&) {
 		MessageBox(g_windowMain, "Left endpoint is out of range!", "Error", MB_ICONERROR); //should never happen
-		return;
+		inputData.error = true;
+		delete[] leftBuffer;
+		return inputData;
 	}
 
 	int rightLenght = GetWindowTextLength(h_editRightEndpoint) + 1;
@@ -66,14 +71,19 @@ void start() {
 	GetWindowText(h_editRightEndpoint, rightBuffer, rightLenght);
 	try {
 		inputData.rightEndpoint = std::stod(rightBuffer);
+		delete[] rightBuffer;
 	}
 	catch (const std::invalid_argument&) {
 		MessageBox(g_windowMain, "Right endpoint is not a valid double!", "Error", MB_ICONERROR);
-		return;
+		inputData.error = true;
+		delete[] rightBuffer;
+		return inputData;
 	}
 	catch (const std::out_of_range&) {
 		MessageBox(g_windowMain, "Right endpoint is out of range!", "Error", MB_ICONERROR); //should never happen
-		return;
+		inputData.error = true;
+		delete[] rightBuffer;
+		return inputData;
 	}
 
 	int nodesLenght = GetWindowTextLength(h_editNodes) + 1;
@@ -81,14 +91,19 @@ void start() {
 	GetWindowText(h_editNodes, nodesBuffer, nodesLenght);
 	try {
 		inputData.nodes = std::stoi(nodesBuffer);
+		delete[] nodesBuffer;
 	}
 	catch (const std::invalid_argument&) {
 		MessageBox(g_windowMain, "Number of nodes is not a valid number!", "Error", MB_ICONERROR);
-		return;
+		inputData.error = true;
+		delete[] nodesBuffer;
+		return inputData;
 	}
 	catch (const std::out_of_range&) {
 		MessageBox(g_windowMain, "Number of nodes is out of range!", "Error", MB_ICONERROR); //should never happen
-		return;
+		inputData.error = true;
+		delete[] nodesBuffer;
+		return inputData;
 	}
 
 	if (Button_GetCheck(h_radioLibC) == BST_CHECKED) {
@@ -99,7 +114,8 @@ void start() {
 	}
 	else {
 		MessageBox(g_windowMain, "No library selected!", "Error", MB_ICONERROR);
-		return;
+		inputData.error = true;
+		return inputData;
 	}
 
 	//threads
@@ -109,73 +125,82 @@ void start() {
 	GetWindowText(h_editThreads, threadsBuffer, threadsLenght);
 	try {
 		threadsTemp = std::stoi(threadsBuffer);
+		delete[] threadsBuffer;
 	}
 	catch (const std::invalid_argument&) {
 		MessageBox(g_windowMain, "Threads number is not a valid number!", "Error", MB_ICONERROR);
-		return;
+		inputData.error = true;
+		delete[] threadsBuffer;
+		return inputData;
 	}
 	catch (const std::out_of_range&) {
 		MessageBox(g_windowMain, "Threads number is out of range!", "Error", MB_ICONERROR); //should never happen
-		return;
+		inputData.error = true;
+		delete[] threadsBuffer;
+		return inputData;
 	}
 	if (threadsTemp < 1 || threadsTemp > 64) {
 		MessageBox(g_windowMain, "Threads number is out of range! (1 - 64)", "Error", MB_ICONERROR);
-		return;
+		inputData.error = true;
+		return inputData;
 	}
 	inputData.threads = static_cast<unsigned char>(threadsTemp);
+	
+	//output file
+	int fileLenght = SendMessage(h_staticFile, WM_GETTEXTLENGTH, 0, 0);
+	char* fileBuffer = new char[fileLenght + 1];
+	SendMessage(h_staticFile, WM_GETTEXT, fileLenght + 1, (LPARAM)fileBuffer);
+	inputData.filePath = fileBuffer;
 
+	return inputData;
+}
+
+std::pair<Point*, double> calculate(InputData inputData) {
 	//array
 	Point* tab = new Point[inputData.nodes];
-	const double constTemp = (inputData.rightEndpoint / (inputData.nodes - 1)); //optimalization
+	const double constTemp = ((inputData.rightEndpoint - inputData.leftEndpoint) / (inputData.nodes - 1)); //optimalization
 	for (int i = 0; i < inputData.nodes; i++) {
 		tab[i].x = inputData.leftEndpoint + constTemp * i;
 	}
-	void (_stdcall*sin_i)(Point*, int, int) = NULL;
-	void (_stdcall*cos_i)(Point*, int, int) = NULL;
+	void(_stdcall*sin_i)(Point*, int, int) = NULL;
+	void(_stdcall*cos_i)(Point*, int, int) = NULL;
 	HINSTANCE hGetProcIDDLL = NULL;
 
 	//selecting and loading library
 	if (inputData.library == InputData::Library::CPP) {
 		hGetProcIDDLL = LoadLibrary("TaylorCpp.dll");
 		if (!hGetProcIDDLL) {
-			MessageBox(g_windowMain, "Library loading error!", "Error", MB_ICONERROR);
-			return;
+			throw std::runtime_error("Library loading error!");
 		}
 		sin_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "_sin_i@12");
 		if (!sin_i) {
-			MessageBox(g_windowMain, "Function loading error (sinus)!", "Error", MB_ICONERROR);
 			FreeLibrary(hGetProcIDDLL);
-			return;
+			throw std::runtime_error("Function loading error (sinus)!");
 		}
 		cos_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "_cos_i@12");
 		if (!cos_i) {
-			MessageBox(g_windowMain, "Function loading error (cosinus)!", "Error", MB_ICONERROR);
 			FreeLibrary(hGetProcIDDLL);
-			return;
+			throw std::runtime_error("Function loading error (cosinus)!");
 		}
 	}
 	else if (inputData.library == InputData::Library::ASM) {
 		hGetProcIDDLL = LoadLibrary("TaylorAsm.dll");
 		if (!hGetProcIDDLL) {
-			MessageBox(g_windowMain, "Library loading error!", "Error", MB_ICONERROR);
-			return;
+			throw std::runtime_error("Library loading error!");
 		}
 		sin_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "sin_i");
 		if (!sin_i) {
-			MessageBox(g_windowMain, "Function loading error (sinus)!", "Error", MB_ICONERROR);
 			FreeLibrary(hGetProcIDDLL);
-			return;
+			throw std::runtime_error("Function loading error (sinus)!");
 		}
 		cos_i = (void(_stdcall*)(Point*, int, int))GetProcAddress(hGetProcIDDLL, "cos_i");
 		if (!cos_i) {
-			MessageBox(g_windowMain, "Function loading error (cosinus)!", "Error", MB_ICONERROR);
 			FreeLibrary(hGetProcIDDLL);
-			return;
+			throw std::runtime_error("Function loading error (cosinus)!");
 		}
 	}
 	else {
-		MessageBox(g_windowMain, "Error!", "Error", MB_ICONERROR);
-		return; //this should never happen
+		throw std::runtime_error("Unexpected error!"); //should never happen
 	}
 
 	void(_stdcall*fun_i)(Point*, int, int);
@@ -187,8 +212,7 @@ void start() {
 		fun_i = cos_i;
 	}
 	else {
-		MessageBox(g_windowMain, "Error!", "Error", MB_ICONERROR);
-		return; //this should never happen
+		throw std::runtime_error("Unexpected error!"); //should never happen
 	}
 
 	//calling library on threads
@@ -212,35 +236,74 @@ void start() {
 	for (std::thread& k : threadList) {
 		k.join();
 	}
-	printTime(stopTimer());
-	
+	double time = stopTimer();
+
 	//freeing library
 	FreeLibrary(hGetProcIDDLL);
+	return std::pair<Point*, double>(tab, time);
+}
+
+void start() {
+	//input values
+	InputData inputData = getInputData();
+	if (inputData.error)
+		return;
+
+	//calculate
+	Point* tab = nullptr;
+	double time = 0;
+	try {
+		std::pair<Point*, double> result = calculate(inputData);
+		tab = std::get<0>(result);
+		time = std::get<1>(result);
+	}
+	catch (const std::runtime_error& exc) {
+		MessageBox(g_windowMain, exc.what(), "Error", MB_ICONERROR);
+		return;
+	}
+
+	printTime(time);
 
 	//saving to file
-	int fileLenght = SendMessage(h_staticFile, WM_GETTEXTLENGTH, 0, 0);
-	char* fileBuffer = new char[fileLenght + 1];
-	SendMessage(h_staticFile, WM_GETTEXT, fileLenght + 1, (LPARAM)fileBuffer);
-	char* fileName;
-	if (strcmp(fileBuffer, "<not chosen>") == 0) {
+	if (strcmp(inputData.filePath, "<not chosen>") == 0) {
 		if (abs(inputData.rightEndpoint - inputData.leftEndpoint) < 101) {
 			TCHAR tempPath[MAX_PATH];
 			GetTempPath(MAX_PATH, tempPath);
 			TCHAR tempFile[MAX_PATH];
 			GetTempFileName(tempPath, "JA", 0, tempFile);
-			fileName = tempFile;
-			saveToFile(fileName, inputData, tab, inputData.nodes);
+			inputData.filePath = tempFile;
+			try {
+				saveToFile(inputData.filePath, inputData, tab, inputData.nodes, time);
+			}
+			catch (const std::runtime_error& exc) {
+				MessageBox(g_windowMain, exc.what(), "Error", MB_ICONERROR);
+				delete[] tab;
+				drawImage(NULL);
+				return;
+			}
+		}
+		else {
+			delete[] tab;
+			drawImage(NULL);
+			return;
 		}
 	}
 	else {
-		fileName = fileBuffer;
-		saveToFile(fileName, inputData, tab, inputData.nodes);
+		try {
+			saveToFile(inputData.filePath, inputData, tab, inputData.nodes, time);
+		}
+		catch (const std::runtime_error& exc) {
+			MessageBox(g_windowMain, exc.what(), "Error", MB_ICONERROR);
+			delete[] tab;
+			drawImage(NULL);
+			return;
+		}
 	}
 
 	//make image
 	if (abs(inputData.rightEndpoint - inputData.leftEndpoint) < 101) {
 		std::string command = "gnuplot -c draw.gp ";
-		command += fileName;
+		command += inputData.filePath;
 		command += ' ';
 		TCHAR tempPath[MAX_PATH];
 		GetTempPath(MAX_PATH, tempPath);
@@ -261,27 +324,31 @@ void start() {
 	}
 	else
 		drawImage(NULL);
+
+	delete[] tab;
 }
 
-void saveToFile(char* path, InputData inputData, Point* tab, int n) {
+void saveToFile(char* path, InputData inputData, Point* tab, int n, double time) {
 	HANDLE file = CreateFile(path, GENERIC_WRITE, NULL, NULL, CREATE_ALWAYS, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
 	if (file == INVALID_HANDLE_VALUE) {
-		MessageBox(g_windowMain, "Cannot open file!", "Error", MB_ICONERROR);
+		//MessageBox(g_windowMain, "Cannot open file!", "Error", MB_ICONERROR);
+		throw std::runtime_error("Cannot open file!");
 	}
 	else {
-		std::string text = makeOutputString(inputData, tab, n);
+		std::string text = makeOutputString(inputData, tab, n, time);
 		DWORD temp;
 		if (WriteFile(file, text.c_str(), text.length(), &temp, NULL) == false) {
-			MessageBox(g_windowMain, "Writting to file error!", "Error", MB_ICONERROR);
+			//MessageBox(g_windowMain, "Writting to file error!", "Error", MB_ICONERROR);
+			throw std::runtime_error("Writting to file error!");
 		}
-		else {
-			MessageBox(g_windowMain, "Saved to file sucessfully", "Info", MB_ICONINFORMATION); //debug
-		}
+		//else {
+			//MessageBox(g_windowMain, "Saved to file sucessfully", "Info", MB_ICONINFORMATION); //debug
+		//}
 	}
 	CloseHandle(file);
 }
 
-std::string makeOutputString(InputData inputData, Point* tab, int n) {
+std::string makeOutputString(InputData inputData, Point* tab, int n, double time) {
 	std::stringstream ret;
 	if (inputData.function == InputData::Function::SIN) {
 		ret << "# sin(x) ";
@@ -297,6 +364,8 @@ std::string makeOutputString(InputData inputData, Point* tab, int n) {
 		ret << "# ASM ";
 	}
 	ret << (short)inputData.threads << '\n';
+	ret.precision(8);
+	ret << "# time: " << time*1000 << "ms\n";
 	ret.setf(std::ios::showpoint);
 	for (int i = 0; i < n; i++) {
 		ret.width(14);

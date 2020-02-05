@@ -1,5 +1,6 @@
 #pragma once
 struct InputData {
+	bool error = false;
 	enum class Function : char { SIN, COS };
 	Function function;
 	double leftEndpoint;

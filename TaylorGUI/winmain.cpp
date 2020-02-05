@@ -1,12 +1,20 @@
 #include <windows.h>
 #include "globals.h"
 #include "dimensions.h"
+#include "cmd.h"
 #include <gdiplus.h>
+
+//int cmdMain(char*); //for some reason Visual cannot see declatarion od cmdMain without this prototype (compiler can)
 
 //pêtla komunikatów
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+	if (lpCmdLine[0] != '\0') {
+		if (cmdMain(lpCmdLine) == 0) {
+			return 0;
+		}
+	}
 	//GDI+ initialization
 	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
 	ULONG_PTR gdiplusToken;
